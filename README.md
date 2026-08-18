@@ -1,5 +1,7 @@
 # emergent-skills
 
+📖 **[完整指南 / Full guide](https://tz5514.github.io/emergent-skills)** — 設計哲學、全景地圖、每個 skill 的詳解與限制。
+
 ## Prerequisites
 
 These skills call skills from [mattpocock/skills](https://github.com/mattpocock/skills)

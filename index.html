@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emergent Skills 指南</title>
+<meta name="description" content="Emergent skills：一套讓 AI agent 做出好工程的生產線——八個 skill 的完整指南。">
+<style>
+:root{
+  --bg:#f7f3ea; --surface:#efe8d9; --ink:#2b2620; --muted:#6f6455;
+  --accent:#b3402a; --accent-ink:#8f3116; --accent-soft:rgba(179,64,42,.07);
+  --line:#ddd2bd; --line-soft:#e8dfcc; --code-bg:#ece4d1; --code-ink:#8f3116;
+  --toc-bg:#f2ecdf;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#211d17; --surface:#2a251d; --ink:#e9e1cf; --muted:#a89b83;
+    --accent:#e0694c; --accent-ink:#e88a6d; --accent-soft:rgba(224,105,76,.12);
+    --line:#403829; --line-soft:#352f23; --code-bg:#2f2920; --code-ink:#e88a6d;
+    --toc-bg:#262119;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#211d17; --surface:#2a251d; --ink:#e9e1cf; --muted:#a89b83;
+  --accent:#e0694c; --accent-ink:#e88a6d; --accent-soft:rgba(224,105,76,.12);
+  --line:#403829; --line-soft:#352f23; --code-bg:#2f2920; --code-ink:#e88a6d;
+  --toc-bg:#262119;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:Georgia,"Songti TC","Noto Serif TC","Source Han Serif TC","PMingLiU",serif;
+  font-size:17px; line-height:1.85;
+}
+a{color:var(--accent); text-decoration:none; border-bottom:1px solid var(--line)}
+a:hover,a:focus-visible{border-bottom-color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+a.plainlink{color:inherit; border-bottom:none; text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px}
+a.plainlink code{text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px}
+code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.82em; background:var(--code-bg); color:var(--code-ink);
+  padding:.1em .38em; border-radius:3px;
+}
+.layout{display:flex; min-height:100vh}
+nav.toc{
+  width:264px; flex:none; position:sticky; top:0; align-self:flex-start;
+  height:100vh; overflow-y:auto; padding:2.2rem 1.4rem 3rem 1.8rem;
+  background:var(--toc-bg); border-right:1px solid var(--line-soft);
+  font-size:.82rem; line-height:1.55;
+}
+nav.toc .toc-label{
+  font-size:.72rem; letter-spacing:.35em; color:var(--muted); margin-bottom:1.2rem;
+}
+nav.toc a{
+  display:block; color:var(--ink); border:none; border-left:2px solid transparent;
+  padding:.28rem .7rem; margin-left:-.7rem;
+}
+nav.toc a.sub{padding-left:1.5rem; color:var(--muted); font-size:.78rem}
+nav.toc a.active{border-left-color:var(--accent); background:var(--accent-soft); color:var(--accent-ink)}
+main{
+  flex:1; min-width:0; padding:4.5rem 2.4rem 6rem;
+}
+.page{max-width:46rem; margin:0 auto}
+h1{
+  font-size:2.15rem; line-height:1.4; font-weight:700; margin:0 0 2rem;
+  text-wrap:balance;
+}
+h2{
+  font-size:1.55rem; line-height:1.45; font-weight:700; margin:0 0 1.4rem;
+  text-wrap:balance;
+}
+h2::before{
+  content:""; display:block; width:2.2rem; height:4px; background:var(--accent);
+  margin-bottom:1.1rem;
+}
+h3{font-size:1.14rem; font-weight:700; margin:2.6rem 0 .9rem; text-wrap:balance}
+h4{font-size:1rem; font-weight:700; margin:2rem 0 .7rem}
+p{margin:0 0 1.1rem}
+ul,ol{margin:0 0 1.1rem; padding-left:1.6rem}
+li{margin-bottom:.45rem}
+section.chapter{margin-top:4.5rem; border-top:1px solid var(--line); padding-top:3rem}
+section.chapter:first-of-type{margin-top:0; border-top:none; padding-top:0}
+.eyebrow{
+  font-size:.74rem; letter-spacing:.3em; color:var(--muted); margin-bottom:.9rem;
+}
+blockquote{
+  margin:1.6rem 0; padding:1rem 1.4rem; background:var(--surface);
+  border-left:3px solid var(--accent);
+}
+blockquote p{margin:0 0 .5rem}
+blockquote p:last-child{margin:0}
+blockquote .src{font-size:.85rem; color:var(--muted)}
+.tablewrap{overflow-x:auto; margin:1.6rem 0}
+table{border-collapse:collapse; width:100%; font-size:.92rem; line-height:1.7}
+th{
+  text-align:left; border-top:2px solid var(--ink); border-bottom:1px solid var(--line);
+  padding:.55rem .8rem .55rem 0; font-weight:700; white-space:nowrap;
+}
+td{border-bottom:1px solid var(--line-soft); padding:.55rem .8rem .55rem 0; vertical-align:top}
+tr:last-child td{border-bottom:1px solid var(--line)}
+.lede{font-size:1.05rem; color:var(--muted)}
+.callout{
+  background:var(--surface); border:1px solid var(--line); border-radius:4px;
+  padding:1.1rem 1.4rem; margin:1.6rem 0; font-size:.95rem;
+}
+.callout .co-label{
+  font-size:.72rem; letter-spacing:.25em; color:var(--accent-ink); display:block; margin-bottom:.5rem;
+}
+/* 出身地層圖與標籤 */
+.strata{margin:1.8rem 0; display:flex; flex-direction:column}
+.stratum{border:1px solid var(--line); background:var(--surface); padding:.85rem 1.1rem; font-size:.9rem; line-height:1.65}
+.stratum:not(:first-child){border-top:0}
+.stratum .st-label{font-size:.7rem; letter-spacing:.22em; color:var(--muted); display:block; margin-bottom:.25rem}
+.stratum.st-ours{border-left:3px solid var(--accent); background:var(--accent-soft)}
+.stratum.st-matt{border-left:3px solid var(--muted)}
+.stratum.st-culture{border-left:3px solid var(--line)}
+.strata-caption{font-size:.8rem; color:var(--muted); margin:.6rem 0 0}
+.prov{display:inline-block; font-size:.66rem; letter-spacing:.14em; border:1px solid var(--line); border-radius:999px; padding:.08rem .6rem; margin-left:.6rem; vertical-align:.18em; color:var(--muted); font-weight:400; white-space:nowrap}
+.prov-ours{border-color:var(--accent); color:var(--accent-ink)}
+/* 紀律子區塊 */
+.discipline{border-left:2px solid var(--line); padding-left:1.2rem; margin:1.7rem 0}
+.discipline h4{margin:0 0 .5rem; font-size:.98rem}
+.discipline p{margin:0; font-size:.95rem}
+.discipline ul{margin:.5rem 0; font-size:.95rem}
+.discipline li{margin-bottom:.3rem}
+/* 論文式引用 */
+sup.ref{font-size:.6em; line-height:0}
+sup.ref a{color:var(--muted); border:none; padding:0 .05em}
+sup.ref a:hover,sup.ref a:focus-visible{color:var(--accent-ink)}
+.refs{margin:2.4rem 0 0; padding-top:.8rem; border-top:1px dashed var(--line); font-size:.72rem; color:var(--muted); line-height:1.8}
+.refs .refs-label{display:block; letter-spacing:.28em; margin-bottom:.35rem}
+.refs ol{margin:0; padding-left:1.3rem}
+.refs li{margin-bottom:.15rem}
+.refs li:target{color:var(--accent-ink)}
+.refs a{color:inherit; border-bottom:1px solid var(--line)}
+/* 兩路對照圖 */
+.compare{display:grid; grid-template-columns:1fr 1fr; gap:1.4rem; margin:1.8rem 0}
+.cmp-head{font-size:.78rem; letter-spacing:.15em; margin-bottom:.7rem; font-weight:700}
+.cmp-bad .cmp-head{color:var(--muted)}
+.cmp-good .cmp-head{color:var(--accent-ink)}
+.cmp-node{border:1px solid var(--line); background:var(--surface); padding:.55rem .8rem; font-size:.85rem; line-height:1.6; border-radius:3px}
+.cmp-bad .cmp-node{border-style:dashed; background:transparent; color:var(--muted)}
+.cmp-node .cmp-note{display:block; font-size:.72rem; color:var(--muted); margin-top:.15rem}
+.cmp-bad .cmp-loss{border-color:var(--accent)}
+.cmp-bad .cmp-loss .cmp-note{color:var(--accent-ink)}
+.cmp-arrow{color:var(--muted); font-size:.9rem; padding:.12rem 0; text-align:center}
+.cmp-good .cmp-arrow{color:var(--accent)}
+@media (max-width:700px){.compare{grid-template-columns:1fr}}
+/* 步驟軌 */
+ol.steps{list-style:none; counter-reset:step; margin:.4rem 0 .8rem; padding:0}
+ol.steps > li{counter-increment:step; position:relative; padding:.3rem 0 .55rem 1.75rem; margin-left:.8rem; border-left:2px solid var(--line-soft); font-size:.92rem; line-height:1.7}
+ol.steps > li:last-child{border-left-color:transparent}
+ol.steps > li::before{content:counter(step); position:absolute; left:-.85rem; top:.35rem; width:1.6rem; height:1.6rem; border-radius:50%; background:var(--surface); border:1px solid var(--line); color:var(--accent-ink); font-size:.72rem; display:flex; align-items:center; justify-content:center}
+ol.steps li strong{display:inline}
+ol.steps ul{margin:.35rem 0 .1rem; padding-left:1.2rem; list-style:disc}
+ol.steps ul li{margin:0 0 .3rem}
+.why-list{margin:.4rem 0 .8rem; padding-left:1.4rem; font-size:.92rem}
+.why-list li{margin-bottom:.4rem}
+/* 流程卡 */
+.station{
+  border:1px solid var(--line); border-radius:4px; margin:2rem 0; overflow:hidden;
+}
+.station-head{
+  background:var(--surface); padding:.9rem 1.4rem; border-bottom:1px solid var(--line-soft);
+  display:flex; align-items:baseline; gap:.9rem; flex-wrap:wrap;
+}
+.station-no{
+  font-size:.72rem; letter-spacing:.2em; color:var(--accent-ink); white-space:nowrap;
+}
+.station-head code{font-size:.9rem}
+.station-body{padding:1.2rem 1.4rem .4rem}
+.station dl{margin:0 0 1rem}
+.station dt{
+  font-size:.76rem; letter-spacing:.2em; color:var(--muted); margin:1rem 0 .3rem;
+}
+.station dd{margin:0 0 .6rem}
+/* pipeline 圖 */
+.pipeline{
+  display:grid; grid-template-columns:minmax(300px,1fr) minmax(180px,240px);
+  gap:1.4rem; margin:2rem 0; align-items:start;
+}
+.flow{display:flex; flex-direction:column}
+.flow-node{
+  border:1px solid var(--line); border-radius:4px; background:var(--surface);
+  padding:.7rem 1rem; font-size:.9rem; line-height:1.55;
+}
+.flow-node strong{display:block; font-size:.95rem}
+.flow-node .who{font-size:.76rem; color:var(--muted)}
+.flow-node.terminal{background:transparent; border-style:dashed; color:var(--muted)}
+.flow-arrow{
+  align-self:center; color:var(--accent); font-size:1rem; line-height:1; padding:.25rem 0;
+}
+.flow-loop{
+  font-size:.78rem; color:var(--muted); border-left:2px dotted var(--accent);
+  margin:.2rem 0 .2rem 1rem; padding:.3rem 0 .3rem .8rem;
+}
+.authorities{
+  border:2px dotted var(--accent); border-radius:4px; padding:1rem 1.1rem;
+  font-size:.85rem; position:sticky; top:1rem;
+}
+.authorities .auth-label{
+  font-size:.7rem; letter-spacing:.25em; color:var(--accent-ink); display:block; margin-bottom:.7rem;
+}
+.authorities p{margin:0 0 .8rem; line-height:1.6}
+.authorities p:last-child{margin:0}
+.theme-toggle{
+  position:fixed; top:1rem; right:1.2rem; z-index:10;
+  width:2.4rem; height:2.4rem; border-radius:50%;
+  border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  font-size:1.05rem; line-height:1; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.theme-toggle:hover{border-color:var(--accent); color:var(--accent-ink)}
+.theme-toggle:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.toc-toggle{display:none}
+@media (max-width: 900px){
+  .layout{display:block}
+  nav.toc{position:sticky; top:0; z-index:20; width:auto; height:auto; max-height:none; overflow:visible; border-right:none; border-bottom:1px solid var(--line); padding:.7rem 1.3rem}
+  .toc-toggle{
+    display:block; width:100%; text-align:left; background:var(--surface);
+    border:1px solid var(--line); border-radius:4px; color:var(--ink);
+    font-family:inherit; font-size:.85rem; letter-spacing:.2em; padding:.55rem .9rem; cursor:pointer;
+  }
+  nav.toc .toc-label{display:none}
+  nav.toc a{display:none}
+  nav.toc.open a{display:block}
+  nav.toc.open{max-height:70vh; overflow-y:auto}
+  main{padding:2.5rem 1.3rem 4rem}
+  .pipeline{grid-template-columns:1fr}
+  .authorities{position:static}
+}
+</style>
+</head>
+<body>
+<button class="theme-toggle" type="button" aria-label="切換深淺色主題" title="切換深淺色主題">☾</button>
+<div class="layout">
+<nav class="toc" aria-label="目錄">
+  <div class="toc-label">目 錄</div>
+  <a href="#preface">序：為什麼需要這套東西</a>
+  <a href="#philosophy">第一章：emergent design 哲學</a>
+  <a class="sub" href="#ph-war">一場 30 年的老戰場</a>
+  <a class="sub" href="#ph-sayability">sayability 分層</a>
+  <a class="sub" href="#ph-agent">agent 時代：重量變了</a>
+  <a class="sub" href="#ph-control">工程控制系統</a>
+  <a class="sub" href="#ph-carriers">資訊的載體責任</a>
+  <a href="#map">第二章：全景地圖</a>
+  <a href="#journey">第三章：每個 skill 詳解</a>
+  <a class="sub" href="#st-grill">流程一：emergent-grill</a>
+  <a class="sub" href="#st-tospec">流程二：emergent-to-spec</a>
+  <a class="sub" href="#st-review">流程二之內：emergent-spec-review</a>
+  <a class="sub" href="#st-totickets">流程三：emergent-to-tickets</a>
+  <a class="sub" href="#st-orch">流程四：emergent-implement-tickets</a>
+  <a class="sub" href="#st-impl">流程五：emergent-implement</a>
+  <a class="sub" href="#st-close">收尾：ADR 的晉升</a>
+  <a class="sub" href="#st-design">共用：emergent-design</a>
+  <a class="sub" href="#st-adr">共用：emergent-adr</a>
+  <a class="sub" href="#st-extract">工具：extract-transcript</a>
+  <a href="#decisions">第四章：設計決策解說</a>
+  <a href="#limits">第五章：限制</a>
+</nav>
+
+<main><div class="page">
+
+<h1>Emergent skills：一套讓 AI agent 做出好工程的生產線</h1>
+
+<blockquote>
+  <p>The most common failure mode in software development is misalignment.</p>
+  <p>軟體開發最常見的失敗模式是不對齊。</p>
+  <p class="src">—— Matt Pocock，<a class="plainlink" href="https://github.com/mattpocock/skills"><code>mattpocock/skills</code></a> README</p>
+</blockquote>
+
+<section class="chapter" id="preface">
+<div class="eyebrow">序</div>
+<h2>為什麼需要這套東西</h2>
+
+<p>你下一個 prompt，agent 跑了五分鐘、改了七個檔、開好 PR、宣稱完工。code 能跑、test 也綠——但打開 diff 細讀，總有地方不對勁：</p>
+
+<ul>
+  <li><strong>能跑但結構糟</strong>——跨 module 的邏輯硬塞進一個 50 行的 function</li>
+  <li><strong>悄悄走捷徑</strong>——edge case 過不了，就改 test 讓它跟著實作走</li>
+  <li><strong>完成 9/10 就宣稱做完</strong>——漏掉的那件往往最基本</li>
+  <li><strong>用話術遮蓋偷工</strong>——「這個 trade-off 是合理的，先 ship 再 iterate」</li>
+</ul>
+
+<p>單看都是小事，累積起來是 AI coding agent 時代特有的失敗模式：表面像完工，codebase 的長期健康在悄悄退化。這不是 AI 寫不出 code 的問題，是 <strong>AI 不知道什麼叫好工程</strong>的問題。</p>
+
+<p>Emergent skills 就是為此存在：八個 skill 組成一條從想法到上線的生產線——把計畫拷問清楚、寫成規格、審查規格、拆成票、一票一票實作驗證，最後把架構決定沉澱成文件。每個流程有明確的進出品，每個流程都預設 agent 會漂移，用機制而不是叮嚀來守。</p>
+
+<h3>淵源</h3>
+
+<p>Emergent skills 蓋在 Matt Pocock 的 <a class="plainlink" href="https://github.com/mattpocock/skills"><code>mattpocock/skills</code></a> 之上——不是「參考了它的想法」，是<strong>強依賴的上層封裝</strong>，抽掉官方 skills 就跑不起來：</p>
+
+<ul>
+  <li><code>emergent-to-spec</code>／<code>emergent-to-tickets</code> 在 runtime 直讀官方 <code>to-spec</code>／<code>to-tickets</code> 的完整本文當 baseline 流程，官方沒裝在旁邊就整場停</li>
+  <li><code>emergent-implement</code> 每次執行都正式載入官方 <code>codebase-design</code> 與 <code>tdd</code> 當實作方法，收尾用 <code>code-review</code> 自審</li>
+  <li><code>emergent-implement-tickets</code> 的整合審查直接借用 <code>code-review</code> 的 Spec axis 定義</li>
+</ul>
+
+<p>分工很清楚：官方 skills 負責 baseline 流程與實作方法，emergent skills 往上疊五層官方沒有的東西——</p>
+
+<ol>
+  <li><strong>工程哲學的明文化</strong>（<code>emergent-design</code>）</li>
+  <li><strong>拷問對齊的機制化</strong>（<code>emergent-grill</code>）——官方的 <code>grill-with-docs</code> 已經會邊追問邊更新文件；這裡把「問」跟「寫」兩頭都機制化。問的一頭：每個問題先過濾——你答得出或 code 裡查得到的不拿去煩使用者、architecture-level 的必問、一次只問一題；提問內建三招技巧（磨利模糊詞、用具體情境逼出概念邊界、對 code 交叉查證）；想收尾前必須先列「若只能再問三題」的清單，由使用者喊停才算問完。寫的一頭：明確拍板才歸檔、<code>CONTEXT.md</code> 詞條展示原文確認才寫入、ADR 過獨立審查才落草稿</li>
+  <li><strong>spec 的自動雙軸審查迴圈</strong>（<code>emergent-spec-review</code>）</li>
+  <li><strong>ADR 的完整生命週期機制</strong>（<code>emergent-adr</code>）</li>
+  <li><strong>無人值守的 ticket orchestration</strong>（<code>emergent-implement-tickets</code>）</li>
+</ol>
+
+<p>對官方那套設計的深入分析，見我們先前的<a href="https://claude.ai/public/artifacts/b3034ff3-8986-470d-aa40-38d55c9c1634">研究報告</a>；本文哲學章的精華即取材於它。</p>
+
+<h3>這份文件怎麼讀</h3>
+
+<p>文件共五章：第一章講哲學（為什麼是 emergent design、為什麼 agent 需要這麼多機制），第二章給全景地圖，第三章把地圖逐節點拆開講清楚——這章是主菜，第四章講三個貫穿全線的設計決策，第五章誠實講限制。</p>
+
+<p>第一次讀建議照章節順序；之後要查某個 skill，直接翻第三章對應的卡片。預設讀者會用 Claude Code、寫過 code，但不必熟悉 XP、TDD、DDD、ADR 這些工程史背景——第一次出現的概念都會交代脈絡。</p>
+</section>
+<section class="chapter" id="philosophy">
+<div class="eyebrow">第一章</div>
+<h2>Emergent design：整套 skills 的姓氏</h2>
+
+<p>這套 skills 裡的每一個都以 <code>emergent-</code> 開頭，這不是裝飾。整套系統的每個設計決定，都從同一個哲學推出來——emergent design（湧現設計）。這章把這個哲學講清楚，因為不懂它，後面每個流程的規矩看起來都像多餘的儀式；懂了它，你會發現每條規矩都在補同一個洞。</p>
+
+<p>這章的內容有三層出身，先給全景，免得讀的時候分不清哪些是底、哪些是我們疊的：</p>
+
+<div class="strata">
+  <div class="stratum st-ours"><span class="st-label">第三層・我們疊的</span><strong>emergent skills 的明文化與延伸</strong>——把哲學寫成可正式載入的權威（sayability 分層、human-decision boundary、載體責任），以及本章的延伸分析</div>
+  <div class="stratum st-matt"><span class="st-label">第二層・基石</span><strong>Matt 的翻譯</strong>——把 30 年的工程紀律物質化成 agent 讀得懂的 skills，並在 agent 時代押注 emergent design</div>
+  <div class="stratum st-culture"><span class="st-label">第一層・源頭</span><strong>30 年工程文化</strong>——Beck 的 TDD、Ousterhout 的 deep modules、Evans 的 ubiquitous language、Nygard 的 ADR、Hunt &amp; Thomas 的 tracer bullet</div>
+</div>
+
+<p class="strata-caption">下面每個小節的標題旁都掛了標籤，標出該節內容的主要出身。</p>
+
+<h3 id="ph-war">一場 30 年的老戰場<span class="prov">工程文化</span></h3>
+
+<p>「設計該在動手前想清楚，還是在動手的過程裡長出來」是一場打了至少 30 年、至今沒有共識的工程哲學辯論<sup class="ref"><a href="#ref-1">[1]</a><a href="#ref-2">[2]</a></sup>。兩派的根本分歧長這樣<sup class="ref"><a href="#ref-3">[3]</a></sup>：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>Spec-driven（規格驅動）</th><th>Emergent design（湧現設計）</th></tr></thead>
+<tbody>
+<tr><td><strong>核心信念</strong></td><td>先思考完整、再實作</td><td>設計透過實作浮現</td></tr>
+<tr><td><strong>流程</strong></td><td>設計階段做完所有重要決定，產出詳細規格；實作照規格執行</td><td>先做最簡單能 work 的版本，從實作經驗累積設計理解，逐漸 refactor</td></tr>
+<tr><td><strong>失敗原因診斷</strong></td><td>規格不夠詳細或不夠正確</td><td>預先設計時資訊不足、做了錯誤決定</td></tr>
+<tr><td><strong>根本假設</strong></td><td>思考夠久就能想清楚</td><td>思考有極限，必須動手才能學到</td></tr>
+</tbody>
+</table></div>
+
+<p>先拆第一個常見誤解：emergent design 不是「不要規格」。要做什麼（產品行為、領域邊界）它一樣得先想清楚；它不預先定的只是「怎麼做」那一層：內部結構怎麼切、抽象放哪、function 怎麼設計，那部分留給實作中浮現。</p>
+
+<p>第二個誤解：emergent design 也不是「比較隨興」。恰恰相反，<strong>它比 spec-driven 更依賴紀律</strong><sup class="ref"><a href="#ref-3">[3]</a></sup>：正因為你不在前面把設計定死，你需要一整套機制確保「邊做邊改」不會滑成「邊做邊爛」。</p>
+
+<p>整套 skills 的哲學權威（<code>emergent-design</code>）把這件事講成兩個都要拒絕的失敗極端<sup class="ref"><a href="#ref-4">[4]</a></sup>：</p>
+
+<blockquote>
+<p><strong>完全的預先設計</strong>是防禦性的。它能拉高下限，卻壓低了實作時判斷力的上限，而且詳細計畫從真實 code 開始偏離的那一刻起就開始過期。<strong>無約束的即興</strong>——vibe coding——則失去可預測性、可理解性、可持續維護性。</p>
+</blockquote>
+
+<div class="refs">
+<span class="refs-label">參考資料</span>
+<ol>
+<li id="ref-1">Craig Larman &amp; Victor Basili, “Iterative and Incremental Development: A Brief History”, <em>IEEE Computer</em>, 2003.（iterative vs plan-driven 之爭可追到 1950 年代）<a href="https://www.craiglarman.com/wiki/downloads/misc/history-of-iterative-larman-and-basili-ieee-computer.pdf">PDF</a></li>
+<li id="ref-2">“Big Design Up Front”, C2 Wiki——XP 社群當年辯論的一手現場。<a href="https://wiki.c2.com/?BigDesignUpFront">wiki.c2.com</a></li>
+<li id="ref-3">Martin Fowler, “Is Design Dead?”——planned design vs evolutionary design 的正面交鋒，並論證 evolutionary design 必須靠 practices 撐住。<a href="https://www.martinfowler.com/articles/designDead.html">martinfowler.com</a></li>
+<li id="ref-4">“Big Design Up Front: A Software Development Antipattern”, DevIQ。<a href="https://deviq.com/antipatterns/big-design-up-front/">deviq.com</a></li>
+</ol>
+</div>
+
+<h3 id="ph-sayability">Sayability 分層：為什麼有些設計必須等實作<span class="prov prov-ours">emergent skills</span></h3>
+
+<p>為什麼不能靠更聰明、想更久，把設計預先全部做完？答案碰到一個認識論的老問題。人的設計直覺裡沉著大量 tacit knowledge（默會知識）——Michael Polanyi 那句話講得最透：「we can know more than we can tell」<sup class="ref"><a href="#ref-5">[5]</a></sup>，我們能知道的，多於我們說得出來的。有些設計理解沒辦法預先言說、寫進文件，它只能在你的手碰到 code、撞到具體約束的那一刻才浮現。</p>
+
+<p><code>emergent-design</code> skill 把這件事叫做 <strong>layers of sayability</strong>（可言說性分層）：設計知識有一部分能在任何 code 存在之前就可靠地說出來；但更多部分要等實作證據——真實的 code、真實的 caller、真實的 test、真實的整合——存在之後才變得可說<sup class="ref"><a href="#ref-6">[6]</a><a href="#ref-7">[7]</a><a href="#ref-8">[8]</a></sup>。硬把不可說的部分逼著預先定案，產出的是「打扮成決定的猜測」，而猜測正是會過期的東西。放在 agent 身上更具體：預先定案等於叫 agent 先在腦中局部模擬一次實作，再把推測出來的做法釘死成規格——這一釘輸兩次：</p>
+
+<div class="compare">
+  <div class="cmp-col cmp-bad">
+    <div class="cmp-head">✗ 硬把不可說的預先釘死</div>
+    <div class="cmp-node">動手前，腦中模擬一次實作<span class="cmp-note">脈絡遠不如動手時完整</span></div>
+    <div class="cmp-arrow">↓</div>
+    <div class="cmp-node">把推測出來的做法釘死成規格</div>
+    <div class="cmp-arrow">↓</div>
+    <div class="cmp-node cmp-loss">實作撞到真實約束<span class="cmp-note">✗ 輸第一次：預判錯了</span></div>
+    <div class="cmp-arrow">↓</div>
+    <div class="cmp-node cmp-loss">不能轉向，繞著錯的規格硬蓋<span class="cmp-note">✗ 輸第二次：手段被釘死，無法隨機應變</span></div>
+  </div>
+  <div class="cmp-col cmp-good">
+    <div class="cmp-head">✓ 只定可說的，其餘留給浮現</div>
+    <div class="cmp-node">動手前只定行為、邊界、契約<span class="cmp-note">這些在 code 存在前就可靠地可說</span></div>
+    <div class="cmp-arrow">↓</div>
+    <div class="cmp-node">實作：真 code、真 caller、真 test</div>
+    <div class="cmp-arrow">↓</div>
+    <div class="cmp-node">撞到問題＝學到新資訊</div>
+    <div class="cmp-arrow">↓</div>
+    <div class="cmp-node">內部做法跟著證據調整<span class="cmp-note">對的設計長出來，行為始終守住</span></div>
+  </div>
+</div>
+
+<p>所以真正的分界不是「要不要先設計」，而是<strong>哪一類決定能預先做好、哪一類必須等實作才做得好</strong>。<code>emergent-design</code> 給了一條明確的 human-decision boundary：一個決定需不需要人先定，判準其實只有一句話：<strong>這個決定會不會創造一個「別人會依賴的承諾」</strong>。skill 列了五種情況，全是這句話的具體型：</p>
+
+<ul>
+  <li><strong>對外的契約</strong>：使用者、外部系統、或呼叫你 code 的人看得到、會依賴的行為。例：API 的回傳格式、錯誤碼。你之後改它，別人就壞掉，所以不能讓它在實作中飄。</li>
+  <li><strong>跨 ticket 的共享邊界</strong>：兩張票各自實作、最後要接起來的那個介面。例：A 票做匯出、B 票做通知，「匯出完成事件長什麼樣」兩票都會碰。不先講好，兩個互相看不見的實作者就會各做各的。</li>
+  <li><strong>不可協商的硬約束</strong>：產品、相容性、資安、法務這類沒有討論空間的規定。例：個資不能出境、必須相容舊版 client。實作者不能用「我覺得這樣更好」推翻它。</li>
+  <li><strong>你明確拍板的選擇</strong>：你說了算的事。你說用 PostgreSQL，實作就不會自己換成它覺得更合適的東西。</li>
+  <li><strong>測試從哪裡測</strong>：所謂 testing seam，指測試伸進系統觀察行為的位置。例：這個功能從 HTTP API 測、還是從 service 層測。這要先講好，TDD 才有地方下第一根樁；至於內部私有結構怎麼測，留給實作。</li>
+</ul>
+
+<p>反過來說，不創造以上任何承諾的選擇（module 怎麼切、抽象放哪、命名、內部結構）留給 codebase、tests 與實作回饋去長。<strong>一句話版本：會被別人依賴的，先定；只有自己看得到的，留給浮現。</strong></p>
+
+<div class="refs">
+<span class="refs-label">參考資料</span>
+<ol start="5">
+<li id="ref-5">Michael Polanyi, <em>The Tacit Dimension</em>, 1966, p.4。<a href="https://press.uchicago.edu/ucp/books/book/chicago/T/bo6035368.html">University of Chicago Press</a></li>
+<li id="ref-6">Peter Naur, “Programming as Theory Building”, 1985——程式的 theory 活在寫它的人腦裡，文件與 code 都無法完整承載。<a href="https://pages.cs.wisc.edu/~remzi/Naur.pdf">PDF</a></li>
+<li id="ref-7">Jack W. Reeves, “What Is Software Design?”, <em>C++ Journal</em>, 1992——「final source code is the real software design」。<a href="https://www.developerdotstar.com/mag/articles/reeves_design.html">developerdotstar.com</a></li>
+<li id="ref-8">David L. Parnas &amp; Paul C. Clements, “A Rational Design Process: How and Why to Fake It”, 1986——理性的預先推導設計不可能達成，只能事後補齊文件假裝。<a href="https://users.ece.utexas.edu/~perry/education/SE-Intro/fakeit.pdf">PDF</a></li>
+</ol>
+</div>
+
+<h3 id="ph-agent">Agent 時代：同一個選擇，重量變了<span class="prov prov-ours">emergent skills</span></h3>
+
+<p>這場辯論打了三十年，但過去它是溫和的，因為人類身上有兩層保險——而 agent 兩層都沒有：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>人類</th><th>Agent</th></tr></thead>
+<tbody>
+<tr>
+<td><strong>手感</strong></td>
+<td>就算嘴上選 spec-driven、照著 plan 走，寫 code 時大腦仍不自覺持續做設計判斷：plan 不對就調、看到更好的抽象就改<sup class="ref"><a href="#ref-9">[9]</a></sup></td>
+<td>只做 explicit 指示的事，叫它照 plan 走就照 plan 走；實證上，多輪對話一旦走錯就傾向回不來，表現平均掉 39%<sup class="ref"><a href="#ref-10">[10]</a></sup></td>
+</tr>
+<tr>
+<td><strong>自覺</strong></td>
+<td>偷懶跳過紀律時「知道自己在偷懶」，那個明知會留著，累積成下次的修正</td>
+<td>跳過步驟是當下真心覺得合理，不是明知故犯；事後承認也不會累積，context 一漂又重新覺得跳過合理</td>
+</tr>
+</tbody>
+</table></div>
+
+<p>更陰險的是偏離的長相：agent 不會說「我想偷懶」，它會說「有鑑於這個 session 的 context 已經很長，我決定採取更精簡的做法」，把紀律的衰減包裝成資源效率的理性權衡，聽起來像判斷力；而模型的自我解釋會系統性地不忠於真實原因，是有實證的行為<sup class="ref"><a href="#ref-11">[11]</a></sup>。</p>
+
+<p>所以同一個選擇、同一次紀律偏離，套在人類身上被兩層緩衝墊稀釋，套在 agent 身上是全額的，而且它自己察覺不到。這三個事實——沒有 tacit 安全網、紀律會隨 context 漂移、偏離會偽裝成判斷——是理解整套 emergent skills 設計的鑰匙。你會在後面反覆看到同一個 pattern：<strong>凡是重要的事，emergent skills 從不依賴 agent「記得」或「自律」，一律改成機制</strong>。權威文件載不到就整場停掉、審查報告用 script 機械驗證、TDD 的紅綠不聽論證、reviewer 被隔離到拿不到會污染判斷的資訊、每張票派全新的 sub-agent。這些不是不信任的儀式，是對這三個事實的工程回應。</p>
+
+<div class="refs">
+<span class="refs-label">參考資料</span>
+<ol start="9">
+<li id="ref-9">Donald A. Schön, <em>The Reflective Practitioner: How Professionals Think in Action</em>, 1983——reflection-in-action：專業者在行動當下即時反思、即時調整。<a href="https://www.goodreads.com/book/show/478559.The_Reflective_Practitioner">Goodreads</a></li>
+<li id="ref-10">Philippe Laban et al., “LLMs Get Lost in Multi-Turn Conversation”, 2025——六類任務多輪對話平均表現下降 39%，且模型走錯一步後傾向無法恢復。<a href="https://arxiv.org/abs/2505.06120">arXiv:2505.06120</a></li>
+<li id="ref-11">Miles Turpin et al., “Language Models Don't Always Say What They Think: Unfaithful Explanations in Chain-of-Thought Prompting”, <em>NeurIPS 2023</em>——模型的解釋會系統性地遺漏真正影響它決定的因素。<a href="https://arxiv.org/abs/2305.04388">arXiv:2305.04388</a></li>
+</ol>
+</div>
+
+<h3 id="ph-control">工程控制系統：五道紀律<span class="prov">工程文化</span><span class="prov prov-ours">emergent skills</span></h3>
+
+<p>Emergent design 靠什麼不退化成 vibe coding？靠一套工程控制系統。<code>emergent-design</code> skill 列了五道紀律，兩種角色：TDD 與 tracer bullet <strong>驅動</strong>設計往前長，deep modules、ubiquitous language、ADR <strong>守護</strong>浮現的過程不失控。五道都不是新發明，每一道背後都站著一本經典：</p>
+
+<div class="discipline">
+<h4>Deep modules：窄介面藏住大量功能<span class="prov">守護</span></h4>
+<p>John Ousterhout 在《A Philosophy of Software Design》（2018）<sup class="ref"><a href="#ref-12">[12]</a></sup>給「好模組」的定義：deep module，讓大量功能透過一個簡單的介面被使用。同一個 <code>cacheGet(key)</code>，淺的版本只是從 dict 拿值；深的版本介面一模一樣，內部默默處理過期、淘汰、thread safety，caller 完全不用知道。emergent design 特別需要它，因為 emergent 的核心動作是反覆 refactor：介面越窄、藏得越深，改內部就越不會外溢到 caller，你才敢一直動。它是一道守護的牆。</p>
+</div>
+
+<div class="discipline">
+<h4>Ubiquitous language：一套共用的領域詞彙<span class="prov">守護</span></h4>
+<p>Eric Evans 在《Domain-Driven Design》（2003）<sup class="ref"><a href="#ref-13">[13]</a></sup>觀察到：軟體失敗常常不是技術不強，是對問題領域的理解不精確。「訂單」這個詞，在不同人嘴裡可能指著微妙不同的東西。解法是讓開發者跟領域專家共用一套詞彙，而且直接進到 code 命名。emergent 的設計會不斷冒出新概念，沒有一份共用詞彙把它們釘住，同詞異義很快讓浮現的設計漂移失準。它守護的是語義的一致。</p>
+</div>
+
+<div class="discipline">
+<h4>Architecture Decision Records：凍結決策當下的脈絡<span class="prov">守護</span></h4>
+<p>Michael Nygard 2011 年的觀察<sup class="ref"><a href="#ref-14">[14]</a></sup>：架構不是一次決定的，是無數小決定累積的，而每個決定的理由很快被遺忘，半年後沒人記得「為什麼這樣設計」。ADR 用一頁 markdown 把決定當下的脈絡凍結下來：選了什麼、當時為什麼、考慮過哪些替代。emergent 過程會做大量決定，理由最容易蒸發，ADR 守護的是決策脈絡不流失。但不是每個決定都值得寫，寫太多就成了沒人讀的文件墳場。值得寫的決定要同時滿足三個條件：</p>
+<ul>
+  <li><strong>難以回頭</strong>：改起來的代價無法輕易收斂</li>
+  <li><strong>沒脈絡會令人意外</strong>：不知情的維護者會誤把刻意的選擇當成該修的問題</li>
+  <li><strong>真實取捨的結果</strong>：不是顯然正確，而是在多個合理選項裡挑了一個</li>
+</ul>
+<p>三個都中才寫，其餘留在 code 裡就好。</p>
+</div>
+
+<div class="discipline">
+<h4>TDD：紅綠循環<span class="prov prov-ours">驅動</span><span class="prov">守護</span></h4>
+<p>Kent Beck 在《Extreme Programming Explained》（1999）<sup class="ref"><a href="#ref-15">[15]</a></sup>推廣的三步循環：先寫一個會失敗的測試（red）、寫最少的 code 讓它通過（green）、在綠燈下整理結構（refactor）。每個小循環都是一次微型設計實驗，結構從實驗中累積，這正是「設計在實作中浮現」的引擎本身。同時，描述行為（而非實作）的測試是 refactor 的安全網：改完跑一遍，綠燈就代表行為沒被改壞。所以 TDD 是雙重身分：驅動浮現的引擎，也是守護演化的網。</p>
+</div>
+
+<div class="discipline">
+<h4>Vertical slice / tracer bullet：先跑通、再加厚<span class="prov prov-ours">驅動</span></h4>
+<p>Hunt 與 Thomas 在《The Pragmatic Programmer》（1999）<sup class="ref"><a href="#ref-16">[16]</a></sup>提出曳光彈：先做一條薄到端到端能跑通的線（schema 最小、一個 endpoint、一顆按鈕），再逐層加厚。好處是提早撞出整合問題，而不是各層各自做完、最後接起來才發現對不上。它就是 emergent 的操作節奏：先跑通、從跑起來的東西學到真實約束、再據此演化。</p>
+</div>
+
+<p>這五道紀律長期被推崇卻難以普及，因為每一條都是「現在痛、以後爽」，跟人類的短期誘因對著幹。這裡藏著 agent 時代真正的轉機：agent 沒有人類這套短期誘因——它不會「懶得寫 ADR」、不會「覺得 refactor 浪費時間」。這些被人性拖累三十年的紀律，第一次有機會被穩定地、不打折地執行——前提是你得把它們寫成 agent 讀得懂的清楚指令，而且（回到上一節）還得架上一層不依賴 agent 自律的外部強制。這兩件事加起來，就是 emergent skills。</p>
+
+<div class="refs">
+<span class="refs-label">參考資料</span>
+<ol start="12">
+<li id="ref-12">John Ousterhout, <em>A Philosophy of Software Design</em>, 2018。<a href="https://web.stanford.edu/~ouster/cgi-bin/book.php">官方書頁</a></li>
+<li id="ref-13">Eric Evans, <em>Domain-Driven Design: Tackling Complexity in the Heart of Software</em>, 2003。<a href="https://www.domainlanguage.com/ddd/">domainlanguage.com</a></li>
+<li id="ref-14">Michael Nygard, “Documenting Architecture Decisions”, 2011——ADR 實踐的起點。<a href="https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions">原文</a></li>
+<li id="ref-15">Kent Beck, <em>Extreme Programming Explained: Embrace Change</em>, 1999。<a href="https://www.goodreads.com/book/show/67833.Extreme_Programming_Explained">Goodreads</a></li>
+<li id="ref-16">Andrew Hunt &amp; David Thomas, <em>The Pragmatic Programmer</em>, 1999。<a href="https://pragprog.com/titles/tpp20/the-pragmatic-programmer-20th-anniversary-edition/">出版社書頁</a></li>
+</ol>
+</div>
+
+<h3 id="ph-carriers">資訊的載體責任：長壽與一次性<span class="prov prov-ours">emergent skills</span></h3>
+
+<p>這套哲學裡最實用的一塊，是回答「每一種資訊該住在哪」。原則是 locality 與 single authority：給每個意義一個唯一權威的家，住在能把它彰顯出來的、最近的耐久載體裡。</p>
+
+<p><strong>長壽載體（long-lived carriers）維護 ground truth</strong>，各管各的領土：</p>
+
+<ul>
+  <li><strong>Code</strong> 擁有具體實作，以及一切能透過結構、型別、命名、行為表達的實作意圖。code 能講清楚的，就不需要註解。</li>
+  <li><strong>Tests</strong> 擁有 user story 要求的可觀察行為——它是行為的耐久紀錄，取代一份重複的長期 user-story 文件。</li>
+  <li><strong>Interfaces</strong> 擁有 caller 契約：caller 正確使用一個 module 需要知道的一切。介面實體上也是 code，但它是切給不同讀者的責任區：實作對維護者說話，介面對 caller 說話——caller 不該需要讀實作才會用。</li>
+  <li><strong>局部註解</strong>只擁有 code 無法彰顯的局部意圖。</li>
+  <li><strong><code>CONTEXT.md</code></strong> 擁有共享的領域語言。</li>
+  <li><strong>ADR</strong> 只在「持久的決策脈絡、且以上載體都不適合承載」時才進入考慮——而且這樣的候選還得通過獨立的必要性審查。</li>
+</ul>
+
+<p><strong>一次性載體（one-shot carriers）是過境中的目標</strong>：spec 記錄所有已拍板的需求與設計、把它們遞交給實作者，是「已拍板的對話」進入「實作」的必經交接層；tickets 把 spec 的工作切成這一輪的單位。兩者都只描述目標與預定工作——不管實作前、實作中、實作後，就算 code 一時跟它們長得一樣，ground truth 永遠只住在長壽載體裡。</p>
+
+<p>那「規格」到底住在哪？把上面的分工倒過來讀就是答案：行為的規格住在 tests、領域詞彙的規格住在 <code>CONTEXT.md</code>、架構決策的規格住在 ADR，而最底層「實作怎麼做」的規格沒有文件、也不需要文件：code 就是它唯一且永遠同步的紀錄。這就是「code-as-spec」：採用 emergent design，邏輯上必然走到「詳細實作規格只存在於 code 本身」。也因此，spec 寫完、tickets 做完之後，該留的知識都已經住進長壽載體，文件本身就功成身退；回頭維護它們，等於養一份注定漂移的第二真相。</p>
+
+</section>
+
+<section class="chapter" id="map">
+<div class="eyebrow">第二章</div>
+<h2>全景地圖</h2>
+
+<p>八個 skill，三種角色。<strong>兩個共用 skill</strong> 被其他 skill 載入，自己不跑流程；<strong>五個流程</strong>由人類依序呼叫（或互相呼叫），組成生產線；<strong>一個工人</strong>只被 orchestrator 或明確指名時使用。先看整條線怎麼流：</p>
+
+<div class="pipeline">
+<div class="flow">
+  <div class="flow-node terminal">你的想法、計畫、或一段討論</div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-node"><strong><code>/emergent-grill</code></strong><span class="who">拷問對齊——榨出隱含假設，決策當場沉澱成 CONTEXT.md 詞條與 draft ADR</span></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-node"><strong><code>/emergent-to-spec</code></strong><span class="who">對話 → spec，發佈到 issue tracker（包官方 <code>to-spec</code> 當 baseline）</span>
+    <div class="flow-loop">內部迴圈：每一版 spec 交給 <code>emergent-spec-review</code> 雙軸審查 → 逐條處置 → 修了就再審，直到收斂</div>
+  </div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-node"><strong><code>/emergent-to-tickets</code></strong><span class="who">spec → tracer-bullet tickets，各自宣告 Blocked by 依賴（包官方 <code>to-tickets</code> 當 baseline）</span></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-node"><strong><code>/emergent-implement-tickets</code></strong><span class="who">orchestrator：照依賴圖一次一票，無人值守</span>
+    <div class="flow-loop">每張票 → 全新 sub-agent 呼叫 <code>emergent-implement</code>（載入官方 <code>codebase-design</code>、<code>tdd</code>）實作 → 整合 → 驗證綠燈</div>
+  </div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-node terminal">code + tests + CONTEXT.md 詞條 + 晉升為 active 的 ADR</div>
+</div>
+<aside class="authorities">
+  <span class="auth-label">兩個共用 skill・貫穿全線</span>
+  <p><strong><code>emergent-design</code></strong><br>工程哲學。emergent-grill、emergent-to-spec、emergent-to-tickets、emergent-implement，連 emergent-spec-review 的 reviewer 都正式載入它——載不到就整場停。</p>
+  <p><strong><code>emergent-adr</code></strong><br>ADR 機制的唯一入口。誰要動 ADR——寫、審、掃描推翻、晉升——都透過它的 operation，不自己動手。</p>
+</aside>
+</div>
+
+<div class="tablewrap"><table>
+<thead><tr><th>Skill</th><th>角色</th><th>一句話</th><th>誰啟動它</th></tr></thead>
+<tbody>
+<tr><td><code>emergent-design</code></td><td>共用</td><td>共享工程哲學，純 reference，不是流程</td><td>被其他 skill 正式載入</td></tr>
+<tr><td><code>emergent-adr</code></td><td>共用</td><td>ADR 全生命週期的 operation dispatcher</td><td>被 skill 呼叫；少數操作供人直接用</td></tr>
+<tr><td><code>emergent-grill</code></td><td>流程</td><td>拷問計畫、對齊 domain、決策當場歸檔</td><td>人類（模型不得自行觸發）</td></tr>
+<tr><td><code>emergent-to-spec</code></td><td>流程</td><td>對話 → spec + 自動雙軸審查迴圈</td><td>人類（模型不得自行觸發）</td></tr>
+<tr><td><code>emergent-spec-review</code></td><td>流程</td><td>雙軸隔離審查一份凍結的 spec，report-only</td><td>emergent-to-spec 的迴圈，或人類單獨呼叫</td></tr>
+<tr><td><code>emergent-to-tickets</code></td><td>流程</td><td>spec／計畫 → tracer-bullet tickets</td><td>人類（模型不得自行觸發）</td></tr>
+<tr><td><code>emergent-implement-tickets</code></td><td>流程</td><td>無人值守的 ticket orchestrator，自己不寫 code</td><td>人類（模型不得自行觸發）</td></tr>
+<tr><td><code>emergent-implement</code></td><td>工人</td><td>實作恰好一張已定案的票</td><td>orchestrator 的 sub-agent，或人類明確指名</td></tr>
+<tr><td><code>extract-transcript</code></td><td>工具</td><td>把當前 session 的對話紀錄擷取成檔案（非 emergent 系列的通用工具）</td><td>emergent-to-spec 送審前、emergent-adr 裁定該不該寫 ADR 時呼叫</td></tr>
+<tr><td><code>transcript-path</code></td><td>工具</td><td>找出當前 session 對話紀錄檔的路徑（非 emergent 系列的通用工具）</td><td>extract-transcript 解析當前 session 紀錄檔位置時呼叫</td></tr>
+</tbody>
+</table></div>
+
+<div class="callout"><span class="co-label">觀察一個 pattern</span>
+五個流程裡，除了 emergent-spec-review（它是被 emergent-to-spec 呼叫的審查引擎）之外的四個，frontmatter 都設了 <code>disable-model-invocation: true</code>：模型不能自己決定「現在該進 emergent-grill 了」「該拆票了」。什麼時候進入下一個流程，永遠是人類的決定。這是 emergent skills「人類主權」設計最先看到的具體表現：流程的節奏屬於人，流程內的執行屬於 agent（完整版在第四章）。
+</div>
+
+<p>值得注意的是這條線<strong>每個流程都可以單獨用</strong>。你可以只跑 emergent-grill 不寫 spec；可以拿一份別處來的 spec 直接叫 <code>emergent-spec-review</code> 審；可以手動一張一張叫 <code>emergent-implement</code> 而不用 orchestrator。生產線是預設路徑，不是強制流程——這正是 Matt「不規範流程、規範紀律」取向的延續。</p>
+</section>
+<section class="chapter" id="journey">
+<div class="eyebrow">第三章</div>
+<h2>每個 skill 詳解</h2>
+
+<p>這章把第二章那張地圖逐節點展開。每個流程三個欄位：<strong>做什麼、怎麼運作、為什麼這樣設計</strong>。</p>
+
+<div class="station" id="st-grill">
+<div class="station-head"><span class="station-no">流程一・對齊</span><code>/emergent-grill</code></div>
+<div class="station-body">
+<dl>
+<dt>做什麼</dt>
+<dd>一場逐題等你回覆的訪談：拷問你的計畫、逼出你沒說出口的假設，每個拍板的決定當場記錄歸檔。整條線上「人完全在迴圈內」的唯一一個流程，不碰任何程式碼。產物：
+<ul class="why-list">
+<li><strong>這場對話紀錄本身</strong>：完整的問答與拍板過程，就是下一個流程合成 spec 的素材</li>
+<li><strong><code>CONTEXT.md</code></strong>：新拍板的領域詞條</li>
+<li><strong>draft ADR</strong>：重大決定的草稿，落在 <code>docs/adr/draft/</code></li>
+</ul>
+</dd>
+<dt>怎麼運作</dt>
+<dd>
+<ol class="steps">
+<li><strong>先讀你專案的脈絡</strong>：開場把共同語言（<code>CONTEXT.md</code>）跟還有效的決策紀錄（ADR）讀進來。你的計畫要是跟某個舊決定衝突，它會當面指出來，不會裝沒看到</li>
+<li><strong>一次只問一題，而且只問值得問的</strong>：自己查得到、推得出的不拿來煩你；跟實作時根本遇不到的假想情境，會被它自己的過濾器刷掉；牽涉重大方向的一定問，連「不確定算不算重大」都會問</li>
+<li><strong>問之前，前提先查證</strong>：一個問題要站得住，它腳下的前提得先是真的。每個前提都對過來源才拿出來：
+<ul>
+<li><strong>跟系統現況有關</strong>：翻 codebase 跟文件，不憑印象</li>
+<li><strong>本地查不到</strong>：搜網路找高可信來源——這是常規動作，不是最後手段</li>
+<li><strong>純設計判斷、無從查證</strong>：照樣提出，但明講「這是我的低信心判斷」</li>
+</ul>
+提出時每個論點附上出處；沒出處的大聲標低信心，讓你的懷疑集中在該懷疑的地方。「我就是知道」不算證據</li>
+<li><strong>問題長這樣</strong>：
+<ul>
+<li><strong>把模糊的詞逼清楚</strong>：你說「account」，它問你指的是 Customer 還是 User</li>
+<li><strong>用具體情境戳邊界</strong>：發明一個 edge case，逼你講清楚兩個概念的分界</li>
+<li><strong>拿 code 對質</strong>：你說系統現在怎麼運作，它會翻 code 查證，不憑印象</li>
+</ul>
+</li>
+<li><strong>拍板就歸檔</strong>：每當你明確定案一個答案，它馬上處理去向：
+<ul>
+<li>是<strong>領域詞彙</strong>：給你看完整詞條，你點頭才寫進 <code>CONTEXT.md</code></li>
+<li>是<strong>重大決定</strong>：呼叫 <code>/emergent-adr</code> 檢查三個 ADR 形成條件（難以回頭、沒脈絡會令人意外、真實取捨的結果），全數滿足才寫成 draft ADR</li>
+<li><strong>都不是</strong>：明講「這條不記錄」跟為什麼，絕不沉默略過</li>
+</ul>
+</li>
+<li><strong>不會自己宣布問完了</strong>：想收尾之前得先列出「如果只能再問三題，會問什麼」，一輪一輪列下去，直到真的想不出值得問的問題，或是你手動喊停</li>
+</ol>
+</dd>
+<dt>為什麼這樣設計</dt>
+<dd>
+<ul class="why-list">
+<li><strong>品味榨取器</strong>：好設計的判斷力寫不成規則塞給 agent，那是說不出口的手感；但「逐題追問」的流程可以把你腦中的判斷逼出來，變成之後 agent 用得上的白紙黑字</li>
+<li><strong>最貴的錯誤攔在最便宜的階段</strong>：你以為的「匯出」跟 agent 理解的差三個 edge case，這個差異會安靜穿過 spec、tickets、變成 code，驗收那天才炸</li>
+<li><strong>爛問題有專門的剋星</strong>：沒價值的問題被「只問值得問的」過濾掉；前提錯誤的問題被「問前查證」擋下——查一次的成本，遠小於一個自信但錯誤的前提被拍板進 spec 的成本</li>
+<li><strong>濾網從不放鬆，但也不提早收攤</strong>：連收尾前列的候選題都要過同一道過濾，爛題在任何階段都不會被問；但只要濾網後還有值得問的就不停——多跑一輪的成本，遠小於漏一題無聲流進之後的放手執行</li>
+</ul>
+</dd>
+<dt>跟官方 grill-with-docs 的差異</dt>
+<dd>
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>官方 <code>grill-with-docs</code></th><th><code>emergent-grill</code></th></tr></thead>
+<tbody>
+<tr><td><strong>提問節奏</strong></td><td>一輪攤開全部問題</td><td>一次一題（取捨：深度換效率）</td></tr>
+<tr><td><strong>問題品質</strong></td><td>事實自己查、決定歸使用者</td><td>再加問前過濾與前提查證</td></tr>
+<tr><td><strong>歸檔把關</strong></td><td>詞條確定就寫；ADR 口頭問你</td><td>詞條你確認才寫；ADR 過獨立審查</td></tr>
+<tr><td><strong>收尾</strong></td><td>問完＋你確認</td><td>強制「再問三題」防漏、未拍板逐一結案</td></tr>
+</tbody>
+</table></div>
+</dd>
+</dl>
+</div>
+</div>
+
+<div class="station" id="st-tospec">
+<div class="station-head"><span class="station-no">流程二・規格</span><code>/emergent-to-spec</code></div>
+<div class="station-body">
+<dl>
+<dt>做什麼</dt>
+<dd>把剛結束的對話合成一份 spec 文件，發佈後自動審查到收斂。它不訪談、不重新釐清需求：素材就是你們已經討論定案的東西。產物：
+<ul class="why-list">
+<li><strong>一份 spec 文件</strong>：發佈在 issue tracker、審查收斂、標好 ready-for-agent，並列明相關的 draft ADR</li>
+</ul>
+</dd>
+<dt>怎麼運作</dt>
+<dd>
+<ol class="steps">
+<li><strong>照官方 <code>to-spec</code> 的流程跑</strong>：探索 repo、寫 spec、發佈。過程中只跟你確認一件事：這個功能的行為要從什麼層級驗證（例如從 API 層測、還是從畫面測）——官方把這個層級叫 <strong>testing seam</strong>，指測試伸進系統觀察行為的位置；它會用這個詞問你，你確認的答案會寫進 spec</li>
+<li><strong>寫的時候守一條紅線</strong>：只有你們拍板過的才寫成要求；聊過但沒定案的想法、agent 自己的偏好、沒人定的內部結構，一律不寫</li>
+<li><strong>把相關的 ADR 列進 spec</strong>：這場對話裡建立或修改過的 draft ADR、以及這份 spec 必須遵守的既有 ADR，都列在 spec 文件裡——下游流程靠這份清單知道該讀哪些、收尾該處理哪些</li>
+<li><strong>發佈後自動送審</strong>：每一版 spec 交給 <code>emergent-spec-review</code> 雙軸審查（下一節）</li>
+<li><strong>逐條處置審查發現</strong>：
+<ul>
+<li>主張成立、已有拍板依據：做最小修復</li>
+<li>主張不成立：駁回，記下理由跟查過的證據</li>
+<li>只有你能決定：先記進待問清單</li>
+</ul>
+</li>
+<li><strong>修過就再審</strong>：文字動過，前一輪報告作廢、整個審查重跑，直到收斂</li>
+<li><strong>問題攢成一批問你</strong>：全部能自己推進的都做完後，一次把待問清單拿回來；你答完，更新 spec、標 ready-for-agent</li>
+</ol>
+</dd>
+<dt>為什麼這樣設計</dt>
+<dd>
+<ul class="why-list">
+<li><strong>必經的交接層</strong>：下游實作者看不到你們的對話，只看得到 spec；沒有這個流程，決定散在對話紀錄裡，每個實作者各自腦補一版需求</li>
+<li><strong>不准寫沒拍板的</strong>：防更隱蔽的災難——spec 把「聊過的探索」寫成約束，實作者被不存在的決定綁死</li>
+<li><strong>問題攢成一批</strong>：中間不打擾，你不用全程陪跑</li>
+</ul>
+</dd>
+<dt>跟官方 to-spec 的差異</dt>
+<dd>
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>官方 <code>to-spec</code></th><th><code>emergent-to-spec</code></th></tr></thead>
+<tbody>
+<tr><td><strong>產物審查</strong></td><td>沒有專門的審查階段</td><td>以 <code>emergent-spec-review</code> 自動雙軸審查，並修正到收斂</td></tr>
+<tr><td><strong>Spec 能寫什麼</strong></td><td>模板有「實作決定」一節，agent 認為定案的都能寫</td><td>多一道限制：對話裡沒真正拍板的東西，不能寫成實作者必須遵守的要求</td></tr>
+<tr><td><strong>跟 ADR 的關係</strong></td><td>寫 spec 時會參考專案裡已有的 ADR</td><td>還會把這次討論產生的 draft ADR 清單附在 spec 上，後續流程才知道要讀、要處理哪幾份</td></tr>
+</tbody>
+</table></div>
+</dd>
+</dl>
+</div>
+</div>
+
+<div class="station" id="st-review">
+<div class="station-head"><span class="station-no">流程二之內・審查引擎</span><code>emergent-spec-review</code></div>
+<div class="station-body">
+<dl>
+<dt>做什麼</dt>
+<dd>對一份凍結的 spec（稱作 Candidate）做雙軸審查。只報問題，不改文件、不寫修法。被 <code>emergent-to-spec</code> 呼叫，也可以單獨拿任何來源的 spec 來審。產物：
+<ul class="why-list">
+<li><strong>兩份 blocker 報告</strong>：各自列出「不修就會害實作者做錯」的問題</li>
+</ul>
+</dd>
+<dt>怎麼運作</dt>
+<dd>
+<ol class="steps">
+<li><strong>兩個互相隔離的審查者平行開跑</strong>：
+<ul>
+<li><strong>拿到完整對話的</strong>：呼叫端先用 <code>extract-transcript</code> skill 把這個 session 到目前為止的對話紀錄（包含 grill 的完整問答）擷取成檔案交給它。它雙向核對——你拍板的每個決定都寫進 spec 了嗎？spec 的每個要求都真的有人拍板過嗎？</li>
+<li><strong>刻意看不到對話的</strong>：只憑文件判斷——實作者拿著這份東西，建得出來、驗得出來嗎？</li>
+</ul>
+</li>
+<li><strong>處置權在呼叫者手上</strong>：報告只列問題；修不修、怎麼修，由 <code>emergent-to-spec</code>（或你）決定</li>
+</ol>
+</dd>
+<dt>為什麼這樣設計</dt>
+<dd>
+<ul class="why-list">
+<li><strong>隔離是儀器</strong>：看不到對話的審查者判斷不出來的東西，未來的實作者同樣判斷不出來——它的無知精確複製了實作者的處境</li>
+<li><strong>審查與修復分離</strong>：審查者不寫修法，防它的偏好污染 spec</li>
+</ul>
+</dd>
+</dl>
+</div>
+</div>
+
+<div class="station" id="st-totickets">
+<div class="station-head"><span class="station-no">流程三・拆票</span><code>/emergent-to-tickets</code></div>
+<div class="station-body">
+<dl>
+<dt>做什麼</dt>
+<dd>把定稿的 spec（或一個計畫、或這場對話）拆成一批票，發佈到 tracker。產物：
+<ul class="why-list">
+<li><strong>一批 tickets</strong>：每張標明要先做完哪些票才能動工，並附回原始 spec 的連結</li>
+</ul>
+</dd>
+<dt>怎麼運作</dt>
+<dd>
+<ol class="steps">
+<li><strong>拆票的依據只有你給它的東西</strong>：spec、計畫、或這場對話。它不會自己去專案裡翻舊文件來當需求</li>
+<li><strong>照官方 <code>to-tickets</code> 的切法：每張票是一小片能跑的功能</strong>：做完就能實際跑起來、驗收得了，而不是「先做完整個資料層」這種要等別人才驗得了的半成品</li>
+<li><strong>票上只寫目標，不寫作法</strong>：要做什麼、怎麼算做完；討論過但沒拍板的實作方式不會被寫成規定。所以票看起來很薄——是故意的</li>
+<li><strong>每張票自己講完整</strong>：之後做這張票的 agent 是全新開場、看不到其他票，所以每張票都寫清楚：做什麼、怎麼驗收、排在誰後面、完整需求去哪看</li>
+</ol>
+</dd>
+<dt>為什麼這樣設計</dt>
+<dd>
+<ul class="why-list">
+<li><strong>壞一張不拖垮全部</strong>：票是失敗的隔離單位——哪張出事就凍哪張（跟被它擋住的），其他照跑</li>
+<li><strong>整合問題提早爆</strong>：每張做完都真的能跑，接不起來的問題第一張票就會發現，而不是全部做完的最後一天</li>
+<li><strong>作法留給實作調整</strong>：票只定目標；把作法寫死，等於把沒人拍板的猜測變成規定</li>
+</ul>
+</dd>
+<dt>跟官方 to-tickets 的差異</dt>
+<dd>
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>官方 <code>to-tickets</code></th><th><code>emergent-to-tickets</code></th></tr></thead>
+<tbody>
+<tr><td><strong>票的內容</strong></td><td>票上寫：做什麼、被誰擋、怎麼驗收</td><td>同樣格式，多一道限制：討論過但沒拍板的實作方式，不准寫進票裡</td></tr>
+<tr><td><strong>連回 spec</strong></td><td>不強制</td><td>每張票必須自足地帶路回 parent spec</td></tr>
+</tbody>
+</table></div>
+</dd>
+</dl>
+</div>
+</div>
+
+<div class="station" id="st-orch">
+<div class="station-head"><span class="station-no">流程四・排程</span><code>/emergent-implement-tickets &lt;tickets-directory&gt;</code></div>
+<div class="station-body">
+<dl>
+<dt>做什麼</dt>
+<dd>AFK 的一條龍實作調度者：你把一個裝著 tickets 的目錄交給它、回答兩個問題，然後就可以走開；它照依賴順序把票一張一張做完。它自己不寫任何 code，只負責派工、驗收、整合。它不是必經流程，只是建議使用的懶人包：你完全可以自己組織票跟票之間怎麼跑實作、做完自己手動收尾歸檔 draft ADR。產物：
+<ul class="why-list">
+<li><strong>一條整合好的分支</strong>：做完的票全部合進來、測試全部通過</li>
+<li><strong>一份收工報告</strong>：哪些做完了、哪些卡住了、哪些事等你決定、哪些現場留給你看</li>
+</ul>
+</dd>
+<dt>怎麼運作</dt>
+<dd>
+<ol class="steps">
+<li><strong>先驗收件</strong>：檢查這批票的依賴關係合不合理、是不是每張票做完都能通過全部測試。不合格的票組它不接，會請你手動處理</li>
+<li><strong>開跑前把該問的一次問完</strong>：程式碼要不要在獨立的工作目錄跑、做完的東西合到哪條分支；如果工作目錄裡有還沒 commit 的變更（通常是剛 grill 完留下的 <code>CONTEXT.md</code> 跟 draft ADR），也會問你要怎麼處理，需要帶走的就幫你帶到執行用的分支上。答完它就不再出聲，你可以去做別的事</li>
+<li><strong>一次只做一張票，嚴格串行而不平行</strong>：從還沒被其他票擋住的裡面挑一張，交給一個全新的 agent 用 <code>emergent-implement</code> 實作</li>
+<li><strong>每張票做完就驗收</strong>：測試通過才合進分支，合完才開下一張</li>
+<li><strong>出事有劇本</strong>：
+<ul>
+<li><strong>一張票失敗</strong>：把做到一半的東西留在原地存證，換一個全新的 agent、帶著失敗紀錄重做一次</li>
+<li><strong>又失敗</strong>：這張票跟等它的票先擱置，其他不相干的照做</li>
+<li><strong>撞到只有你能決定的事</strong>：標記起來先跳過；等你裁決完，下次再跑它會接手補做</li>
+</ul>
+</li>
+<li><strong>全部做完最後總驗</strong>：整批對照 spec 檢查有沒有漏掉的需求、不同票之間有沒有重複做或叫法不一致；最後呼叫 <code>/emergent-adr</code> 把這一輪的 draft ADR 定案歸檔（見收尾）</li>
+</ol>
+</dd>
+<dt>為什麼這樣設計</dt>
+<dd>
+<ul class="why-list">
+<li><strong>嚴格串行，不平行</strong>：平行做票，每張票各自「長」出來的設計會彼此有落差，事後整合的成本未必比平行省下的時間划算。串行讓每張票永遠基於前面已完成、已整合的 codebase 開工——emergent 的基準穩定不偏移，後面的票就能延續前面票長出來的成果繼續長</li>
+<li><strong>AFK 不等於失控</strong>：派工、驗收、出事怎麼辦的規則全部事先寫死；需要人判斷的它不會擅自決定，全部留在報告裡等你</li>
+<li><strong>每張票都是全新的 agent</strong>：上一張票的思路不會帶進下一張；票跟 repo 本身就足以說明要做什麼</li>
+<li><strong>重做是換人、不是續命</strong>：失敗後從乾淨狀態重來，比在半成品上硬修更容易做對；失敗的經驗用一份紀錄帶過去就夠</li>
+</ul>
+</dd>
+</dl>
+</div>
+</div>
+
+<div class="station" id="st-impl">
+<div class="station-head"><span class="station-no">流程五・實作</span><code>emergent-implement</code></div>
+<div class="station-body">
+<dl>
+<dt>做什麼</dt>
+<dd>實作單一一張票。由流程四派工呼叫，或由你直接指名使用。啟動條件：一次恰好一張票、票上明確寫出要做什麼與驗收標準；條件不滿足就不會動 code。產物：
+<ul class="why-list">
+<li><strong>做完並通過測試的 code</strong>：commit 在當前分支上</li>
+<li><strong>一份回報</strong>：開頭第一行就講結果——做完了、卡在等你決定、還是失敗了</li>
+</ul>
+</dd>
+<dt>怎麼運作</dt>
+<dd>
+<ol class="steps">
+<li><strong>先讀工作方法才動手</strong>：<code>emergent-design</code>（哪些事它能自己決定、哪些不行）、官方 <code>codebase-design</code>（怎麼設計好模組）、官方 <code>tdd</code>（先寫測試再寫 code）</li>
+<li><strong>分清楚什麼能動、什麼不能動</strong>：票上白紙黑字定好的，照做，不自作聰明改掉；票上沒講的內部細節（module 怎麼切、東西叫什麼名字），它邊做邊決定</li>
+<li><strong>小步推進</strong>：每完成一小段就實際執行、測試通過後才做下一段，而不是全部寫完才一次驗證</li>
+<li><strong>遇到票上沒答案、又輪不到它決定的事</strong>：那一塊先停下，其他能做的照樣做完、驗完，最後把問題帶回來問你。「這題很難」不算——難題它要自己解；只有「答了等於替你做決定」的才會拿回來問</li>
+<li><strong>做完先自我檢查再交卷</strong>：跑全部測試、用官方 <code>code-review</code> 對照團隊標準與原始的票自查一輪，該修的修完才 commit</li>
+</ol>
+</dd>
+<dt>為什麼這樣設計</dt>
+<dd>
+<ul class="why-list">
+<li><strong>這裡就是「emergent」發生的地方</strong>：前面的流程只定了「要什麼行為」；「程式長什麼樣」在這裡跟著真實的 code 與測試長出來</li>
+<li><strong>「難」跟「不該我決定」是兩回事</strong>：難題自己解，防它凡事跑來問你；會替你做主的問題一定回來問，防它越權</li>
+</ul>
+</dd>
+<dt>跟官方 implement 的差異</dt>
+<dd>
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>官方 <code>implement</code></th><th><code>emergent-implement</code></th></tr></thead>
+<tbody>
+<tr><td><strong>開工條件</strong></td><td>做你指給它的工作，沒有硬性門檻</td><td>恰好一張已定案的票；範圍或驗收標準不清楚就不動工</td></tr>
+<tr><td><strong>撞到沒人決定過的問題</strong></td><td>沒有明文規則</td><td>內部作法自己定；會替你對外做主的，凍結那部分、回報等你裁決</td></tr>
+<tr><td><strong>工作方法</strong></td><td>「盡量用 <code>/tdd</code>」</td><td><code>emergent-design</code> 與 <code>codebase-design</code> 載不進來就不開工，再配 <code>tdd</code> 紅綠迴圈</td></tr>
+</tbody>
+</table></div>
+</dd>
+</dl>
+</div>
+</div>
+
+<div class="station" id="st-close">
+<div class="station-head"><span class="station-no">收尾</span><code>/emergent-adr finalize-draft-adrs</code></div>
+<div class="station-body">
+<dl>
+<dt>做什麼</dt>
+<dd>處理流程一留下來的 draft ADR。實作完成之前它們一直是草稿；現在 code 已經落地，要決定每一份的去留：轉正、還是刪掉。通常由流程四收尾時自動呼叫，你也可以自己跑。</dd>
+<dt>怎麼運作</dt>
+<dd>
+<ol class="steps">
+<li><strong>先判斷還需不需要留</strong>：如果這個決策已經能從 code 跟測試直接看懂，就不需要一份 ADR 再講一次，刪掉</li>
+<li><strong>檢查寫得夠不夠好</strong>：內容不合格的先修好</li>
+<li><strong>掃描檢查與既有 active ADR 的決策推翻關係</strong>：如果它推翻了某些既有的 active ADR 決策，把推翻關係標記清楚</li>
+<li><strong>轉正</strong>：搬進 <code>active/</code>，從此不可修改；之後要改主意，只能寫新的草稿來取代它</li>
+</ol>
+</dd>
+<dt>為什麼這樣設計</dt>
+<dd>
+<ul class="why-list">
+<li><strong>功能做完，每種知識都有了自己的家</strong>：行為在 tests、實作在 code、詞彙在 <code>CONTEXT.md</code>、決策的來龍去脈在 active ADR。spec 跟 tickets 的任務到此結束，之後不再維護</li>
+</ul>
+</dd>
+</dl>
+</div>
+</div>
+
+<p>地圖上還剩三個不在生產線上的節點：兩個被上面每個流程反覆呼叫的共用 skill，跟一個提供對話證據的工具。</p>
+
+<div class="station" id="st-design">
+<div class="station-head"><span class="station-no">共用・哲學</span><code>emergent-design</code></div>
+<div class="station-body">
+<dl>
+<dt>做什麼</dt>
+<dd>整套 skills 共用的工程哲學，第一章講的內容就是它的本文。純參考文件，沒有流程可跑：其他 skill 在開工前把它完整讀進來，用它來做判斷。</dd>
+<dt>怎麼運作</dt>
+<dd>
+<ol class="steps">
+<li><strong>誰用它</strong>：<code>emergent-grill</code>、<code>emergent-to-spec</code>、<code>emergent-to-tickets</code>、<code>emergent-implement</code>，連 <code>emergent-spec-review</code> 派出去的兩個審查者，開工前都要完整載入它</li>
+<li><strong>只認完整本文</strong>：描述、摘要、轉述、憑記憶，都不算載入</li>
+<li><strong>載不到就停</strong>：整場結束，不產出半份成品</li>
+</ol>
+</dd>
+<dt>為什麼這樣設計</dt>
+<dd>
+<ul class="why-list">
+<li><strong>規則只活在一個地方</strong>：哲學改一處，所有 skill 同步生效，不會出現五份各自過期的複本</li>
+<li><strong>防漂移</strong>：第一章講過，agent 的紀律會隨 context 漂移，「記得的哲學」也一樣會漂。每次都重新載入完整本文，把「用漂移版哲學做判斷」這條路封死</li>
+<li><strong>寧可停，不硬跑</strong>：載不到就停的反面是「盡力而為」——硬跑的系統看起來還在運作，產出卻已經沒有保證，而且沒人會發現</li>
+</ul>
+</dd>
+</dl>
+</div>
+</div>
+
+<div class="station" id="st-adr">
+<div class="station-head"><span class="station-no">共用・ADR 機制</span><code>/emergent-adr &lt;operation&gt;</code></div>
+<div class="station-body">
+<dl>
+<dt>做什麼</dt>
+<dd>ADR 所有操作的唯一入口。在 emergent skills 裡，ADR 不是一個 markdown 模板，是一套有生命週期、有審查、有推翻關係的系統；誰要動 ADR（寫、審、掃描、轉正）都透過它的操作，不自己動手改檔案。</dd>
+<dt>怎麼運作</dt>
+<dd>
+<ol class="steps">
+<li><strong>用操作名呼叫</strong>：<code>/emergent-adr &lt;操作&gt;</code>；缺了操作名或名字不對，它列出合法清單然後停，不從上下文猜你要幹嘛</li>
+<li><strong>三個資料夾就是三種狀態</strong>：
+<ul>
+<li><code>draft/</code>：草稿，還沒實作，可以自由修改</li>
+<li><code>active/</code>：已實作、還有效，不可修改；要改主意，只能寫新草稿去推翻它</li>
+<li><code>archived/</code>：所有決策都被推翻，退場，平常不會被讀到</li>
+</ul>
+</li>
+<li><strong>開場只讀索引</strong>：每份 ADR 有一行「管什麼議題」的描述（只寫議題、不寫結論）；其他 skill 開場只讀這份清單，判斷相關才打開全文</li>
+<li><strong>機械的事交給 script</strong>：編號發放、狀態計算、審查報告的驗證，都由 script 處理，不讓 agent 手寫</li>
+</ol>
+</dd>
+<dt>十一個 operation</dt>
+<dd>九個基礎操作，加上兩個把它們串起來的一條龍。先認識基礎操作：
+<div class="tablewrap"><table>
+<thead><tr><th>Operation</th><th>做什麼</th></tr></thead>
+<tbody>
+<tr><td><code>write</code></td><td>照格式建立或修改一份草稿的內容；只負責寫，不判斷值不值得寫</td></tr>
+<tr><td><code>quality-review</code></td><td>找一個沒看過討論過程的獨立審查者，評這份 ADR 寫得好不好</td></tr>
+<tr><td><code>revise</code></td><td>審、修、再審直到過關的迴圈；審查由 <code>quality-review</code> 執行，一次交付最多七輪</td></tr>
+<tr><td><code>scan-supersession</code></td><td>掃描一份草稿推翻了哪些還生效的舊決策</td></tr>
+<tr><td><code>promote-draft-to-active</code></td><td>把草稿轉正搬進 <code>active/</code>，並標記被推翻的舊決策</td></tr>
+<tr><td><code>check-adr-redundancy</code></td><td>查這份 ADR 講的事，是不是 code 跟 tests 已經講清楚了</td></tr>
+<tr><td><code>check-should-write-adr</code></td><td>寫入前的守門員：裁定一個決策夠不夠格成為 ADR（<code>emergent-grill</code> 的歸檔 gate 用的就是它）</td></tr>
+<tr><td><code>extract-active-adr-desc</code></td><td>列出所有生效 ADR 的一行描述清單，不開全文。<code>emergent-grill</code> 開場就是用它認識既有決策：先讀清單，判斷跟本輪相關才打開該份全文</td></tr>
+<tr><td><code>read-necessity-conditions</code></td><td>載入「什麼決策值得寫 ADR」三條件的原文定義。<code>emergent-grill</code> 自審該不該寫 ADR 時、<code>check-should-write-adr</code> 審查時，都會自動呼叫它取得同一份定義</td></tr>
+</tbody>
+</table></div>
+<p>兩個一條龍入口把上面的積木照固定順序串起來：</p>
+<ul class="why-list">
+<li><strong><code>produce</code></strong>（從零寫好一份 draft ADR；人類專屬入口，你說要寫就寫）：<code>write</code> → <code>revise</code> → <code>scan-supersession</code></li>
+<li><strong><code>finalize-draft-adrs</code></strong>（把一批草稿收尾；流程四結尾呼叫的就是它）：對每份草稿跑 <code>check-adr-redundancy</code> → 需要改寫時 <code>write</code> → <code>revise</code> → <code>scan-supersession</code> → <code>promote-draft-to-active</code></li>
+</ul>
+基礎操作全部都能單獨呼叫，不是只能透過一條龍。
+</dd>
+<dt>為什麼這樣設計</dt>
+<dd>
+<ul class="why-list">
+<li><strong>一個入口，規則不散落</strong>：每份規格只活在一個檔案裡，改一處、處處生效</li>
+<li><strong>狀態就是位置</strong>：看檔案在哪個資料夾，就知道它能不能改，不用讀內文</li>
+<li><strong>描述索引省 context</strong>：幾十份 ADR 的專案，開場成本仍然只是一張小清單</li>
+<li><strong>script 防手滑</strong>：狀態讓人手寫，就會出現第二份會漂移的副本；審查報告讓 agent 手寫，就可能被編出來。機械的事交給機械，才驗得了真假</li>
+</ul>
+</dd>
+</dl>
+</div>
+</div>
+
+<div class="station" id="st-extract">
+<div class="station-head"><span class="station-no">工具・對話擷取</span><code>extract-transcript</code></div>
+<div class="station-body">
+<dl>
+<dt>做什麼</dt>
+<dd>把當前 session 的對話紀錄擷取成一個檔案。它是通用的工具 skill，不屬於 emergent 系列，任何需要對話原文的場合都能呼叫；emergent skills 只是它的使用者之一。</dd>
+<dt>怎麼運作</dt>
+<dd>
+<ol class="steps">
+<li><strong>工具本身只做一件事</strong>：把這個 session 到目前為止的完整對話（包含 grill 的問答與你拍板的每一句）輸出成檔案；session 紀錄檔的位置由另一個工具 skill <code>transcript-path</code> 負責解析</li>
+<li><strong>在這條生產線上目前的使用者</strong>：
+<ul>
+<li><code>emergent-to-spec</code>：每一輪送審前擷取一次、切到你最新的一句話，交給 <code>emergent-spec-review</code> 裡「拿到完整對話的」審查者當證據</li>
+<li><code>/emergent-adr check-should-write-adr</code>：裁定一個決策夠不夠格成為 ADR 時，用它擷取對話證據來核對</li>
+</ul>
+</li>
+</ol>
+</dd>
+<dt>為什麼這樣設計</dt>
+<dd>
+<ul class="why-list">
+<li><strong>審查者要的是原文，不是轉述</strong>：讓 agent 摘要對話，可能漏掉或美化你的決定；擷取原文，審查者對著你真正說過的話核對</li>
+<li><strong>每輪重新擷取是呼叫端的紀律</strong>：你在審查過程中的回答也是拍板；<code>emergent-to-spec</code> 每輪重擷取，免得審查者把新決定誤判成沒人拍板過</li>
+</ul>
+</dd>
+</dl>
+</div>
+</div>
+
+</section>
+
+<section class="chapter" id="decisions">
+<div class="eyebrow">第四章</div>
+<h2>設計決策解說</h2>
+
+<p>前面的章節把每個流程的設計理由就地講完了。還剩三個跨越所有流程的決定，沒有任何一張卡片裝得下，值得單獨講清楚。</p>
+
+<h3>一、不複製官方 skill，執行時直接讀原版</h3>
+<p><code>emergent-to-spec</code> 跟 <code>emergent-to-tickets</code> 都需要官方 <code>to-spec</code>／<code>to-tickets</code> 的流程。拿到這個流程有兩種做法：把官方內容複製進自己的 skill，或是每次執行時去讀安裝在旁邊的官方原版。這裡選了後者。</p>
+<ul>
+<li><strong>複製的問題</strong>：複製完成的那一刻起，你手上就是一份不會再更新的副本。官方修了 bug、改了流程，副本毫不知情，也沒有人會提醒你它過期了</li>
+<li><strong>現讀原版的好處</strong>：官方更新，下次執行直接生效；自己加的規則跟官方的流程分屬兩個檔案，永遠不會混在一起改壞</li>
+<li><strong>代價</strong>：官方 skill 必須安裝在旁邊；搬家、改名、或用別的方式管理，就會直接停工（好消息：是停，不是亂跑）</li>
+</ul>
+
+<h3>二、可以驗證的事，不接受口頭宣稱</h3>
+<p>為什麼不信 agent 說「做完了」？第一章講過：agent 沒有穩定的紀律自我，偏離的時候還會把偏離講得像判斷。所以整套 skills 凡是能驗證的都直接驗，不聽解釋：</p>
+<ul>
+<li><strong>審查報告有固定格式</strong>：多寫一個欄位、審到一半收工，整份作廢——沒辦法用漂亮的文字灌水</li>
+<li><strong>審查期間文件凍結</strong>：被動過一個字，該輪作廢重來——不能一邊審一邊改</li>
+<li><strong>沒發現問題也要交代查了什麼</strong>：沉默不算通過</li>
+<li><strong>「做完了」的標記要對得上 git 紀錄</strong>：標記與歷史不符時，以歷史為準</li>
+</ul>
+<p>序章那四種失敗模式（偷改 test、做九成宣稱完工、話術遮蓋），全靠「宣稱被當真」才能得逞；在這套機制下它們沒有生存空間。</p>
+
+<h3>三、人決定方向，機器負責執行</h3>
+<p>整套 skills 對「什麼歸你、什麼歸 agent」切得很乾淨：</p>
+<ul>
+<li><strong>歸你的</strong>：什麼時候進下一個流程（每個流程都要你親自啟動）、所有「別人會依賴」的決定（第一章那條邊界）、draft ADR 最後留不留</li>
+<li><strong>歸 agent 的</strong>：流程內的執行、排程、審查、驗證</li>
+</ul>
+<p>而且兩邊互不越界：<code>emergent-grill</code> 不會替你拍板重大決定，調度者跑起來也不會中途打斷你，該問的攢著一次問。「不越權」跟「不打擾」是同一個設計的兩面。</p>
+</section>
+
+<section class="chapter" id="limits">
+<div class="eyebrow">第五章</div>
+<h2>限制</h2>
+
+<p>以下是這套設計自帶的取捨，不是待修的缺陷：選了確定性，就要付這些成本。用之前該知道。</p>
+
+<h3>小事不值得走這條線</h3>
+<p>修一個 typo 不需要 emergent-grill → spec → 審查 → tickets。這條線是為「一個功能」以上的規模設計的；小改動直接做，或單獨用 <code>emergent-implement</code>。沒有任何機制強迫你走完整條線，但這也表示「這件事值不值得開一條線」的判斷完全留給你：判斷錯了，不是白付流程成本，就是該有的把關一道都沒有。</p>
+
+<h3>吃強模型，也吃 token 跟時間</h3>
+<p>每次都完整載入權威、每輪重跑的雙軸審查、一票一個全新的 sub-agent、一層層的驗證——每一項都在花 token 跟執行時間換確定性；調度的嚴格串行更是明著拿時間換整合品質。而且整套設計預設執行者有前沿模型等級的判斷力（emergent-spec-review 明文指定審查者用 Opus 級模型）。用便宜模型跑，紀律機制還在，但流程內判斷的品質會垮。</p>
+
+<h3>CONTEXT.md 與 ADR 需要人在場</h3>
+<p>詞條寫入的鐵則是「你沒有印象拍板過的意義，絕不能進 <code>CONTEXT.md</code>」——這保護了詞彙表不腐爛，但也表示沉澱的速度被你出席 emergent-grill 訪談的頻率限制。ADR 同理：draft 堆著不收尾，active 就不反映現實。這套系統做到了「文件不會自己爛掉」，但「文件持續長出來」仍然需要你定期回來。</p>
+</section>
+
+
+
+
+</div></main>
+</div>
+
+<script>
+(function(){
+  var nav = document.querySelector('nav.toc');
+  var links = Array.prototype.slice.call(nav.querySelectorAll('a[href^="#"]'));
+  var pairs = links.map(function(a){
+    return {a: a, el: document.getElementById(a.getAttribute('href').slice(1))};
+  }).filter(function(p){ return p.el; });
+  var cache = [];
+  function recalc(){
+    cache = pairs.map(function(p){
+      return {p: p, top: p.el.getBoundingClientRect().top + window.scrollY};
+    }).sort(function(x, y){ return x.top - y.top; });
+  }
+  var active = null;
+  function onScroll(){
+    if(!cache.length) return;
+    var y = window.scrollY + Math.min(window.innerHeight * 0.3, 240);
+    var cur = null;
+    for(var i = 0; i < cache.length; i++){
+      if(cache[i].top <= y) cur = cache[i]; else break;
+    }
+    if(window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4){
+      cur = cache[cache.length - 1];
+    }
+    var link = cur ? cur.p.a : pairs[0].a;
+    if(link === active) return;
+    if(active) active.classList.remove('active');
+    active = link;
+    active.classList.add('active');
+    var nr = nav.getBoundingClientRect();
+    var lr = link.getBoundingClientRect();
+    if(lr.top < nr.top + 48 || lr.bottom > nr.bottom - 48){
+      nav.scrollTop += lr.top - (nr.top + nr.height / 2);
+    }
+  }
+  var ticking = false;
+  window.addEventListener('scroll', function(){
+    if(ticking) return;
+    ticking = true;
+    requestAnimationFrame(function(){ ticking = false; onScroll(); });
+  }, {passive: true});
+  window.addEventListener('resize', function(){ recalc(); onScroll(); });
+  window.addEventListener('load', function(){ recalc(); onScroll(); });
+  recalc(); onScroll();
+
+  // 手機版收合
+  var toggle = document.createElement('button');
+  toggle.className = 'toc-toggle';
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.textContent = '目錄';
+  nav.insertBefore(toggle, nav.firstChild);
+  toggle.addEventListener('click', function(){
+    var open = nav.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  links.forEach(function(a){
+    a.addEventListener('click', function(){
+      nav.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+})();
+(function(){
+  var btn = document.querySelector('.theme-toggle');
+  var root = document.documentElement;
+  var KEY = 'emergent-guide-theme';
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  function stored(){ try{ return sessionStorage.getItem(KEY); }catch(e){ return null; } }
+  function store(v){ try{ sessionStorage.setItem(KEY, v); }catch(e){} }
+  function osTheme(){
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  function desired(){
+    var v = stored();
+    return (v === 'light' || v === 'dark') ? v : osTheme();
+  }
+  function paint(){
+    var next = desired() === 'dark' ? 'light' : 'dark';
+    btn.textContent = next === 'dark' ? '\u263e' : '\u2600';
+    btn.setAttribute('aria-label', next === 'dark' ? '切換為深色' : '切換為淺色');
+    btn.title = btn.getAttribute('aria-label');
+  }
+  function apply(){
+    var d = desired();
+    if(root.getAttribute('data-theme') !== d) root.setAttribute('data-theme', d);
+    paint();
+  }
+  apply();
+  if('MutationObserver' in window){
+    new MutationObserver(apply).observe(root, {attributes:true, attributeFilter:['data-theme']});
+  }
+  btn.addEventListener('click', function(){
+    store(desired() === 'dark' ? 'light' : 'dark');
+    apply();
+  });
+  if(window.matchMedia){
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', apply);
+  }
+})();
+</script>
+</body>
+</html>
