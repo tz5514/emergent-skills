@@ -1,5 +1,20 @@
 # emergent-skills
 
+## Prerequisites
+
+These skills call skills from [mattpocock/skills](https://github.com/mattpocock/skills)
+at runtime. Install those first — without them the emergent skills fail mid-run:
+
+```bash
+npx skills add mattpocock/skills -g \
+  --skill codebase-design \
+  --skill to-spec \
+  --skill to-tickets \
+  --skill code-review \
+  --skill tdd \
+  --skill setup-matt-pocock-skills
+```
+
 Install with skills.sh:
 
 ```bash
