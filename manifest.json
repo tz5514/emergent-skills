@@ -1,0 +1,134 @@
+{
+  "package_name": "emergent-skills",
+  "repository": "tz5514/emergent-skills",
+  "skills": [
+    {
+      "files": [
+        "SKILL.md"
+      ],
+      "name": "emergent-design"
+    },
+    {
+      "files": [
+        "CONTEXT-FORMAT.md",
+        "OUTPUT-FORMAT.md",
+        "SKILL.md"
+      ],
+      "name": "emergent-grill"
+    },
+    {
+      "files": [
+        "ADR-FORMAT.md",
+        "ADR-NECESSITY-CONDITIONS.md",
+        "CHECK-ADR-REDUNDANCY-HUMAN-REPORT.md",
+        "CHECK-ADR-REDUNDANCY-PROMPT.md",
+        "CHECK-SHOULD-WRITE-ADR-PROMPT.md",
+        "QUALITY-REVIEW-PROMPT-BLOCKS.md",
+        "QUALITY-REVIEW-PROMPTS.md",
+        "SCAN-SUPERSESSION-PROMPT.md",
+        "SKILL.md",
+        "scripts/adr_id.py",
+        "scripts/adr_subfolder.py",
+        "scripts/atomicity_lint.py",
+        "scripts/check_adr_redundancy.py",
+        "scripts/check_should_write_adr.py",
+        "scripts/conflict_disposition.py",
+        "scripts/context_derivation.py",
+        "scripts/description_index.py",
+        "scripts/finalize_draft_adrs_contract.py",
+        "scripts/live_atomic_decision_corpus.py",
+        "scripts/necessity_conditions_authority.py",
+        "scripts/preflight_authority_bundle.py",
+        "scripts/produce_contract.py",
+        "scripts/prompt_fragments.py",
+        "scripts/quality_review_contract.py",
+        "scripts/review_prompt_assembly.py",
+        "scripts/review_verdict_report.py",
+        "scripts/revise_contract.py",
+        "scripts/scan_candidates.py",
+        "scripts/scan_cycle_contract.py",
+        "scripts/scan_driven_delivery_contract.py",
+        "scripts/scan_rewrite_contract.py",
+        "scripts/scan_supersession_delivery.py",
+        "scripts/scan_supersession_input.py",
+        "scripts/scan_supersession_ledger.py",
+        "scripts/scan_supersession_packet.py",
+        "scripts/scan_supersession_result.py",
+        "scripts/status_calculator.py",
+        "scripts/supersession_converter.py",
+        "scripts/supersession_mark_back.py",
+        "scripts/supersession_pairs.py"
+      ],
+      "name": "emergent-adr"
+    },
+    {
+      "files": [
+        "ADR-REFERENCE-HANDLING.md",
+        "SKILL.md",
+        "agents/openai.yaml",
+        "scripts/adr_reference_block.py",
+        "scripts/crop_review_conversation.py",
+        "scripts/path_existence_check.py",
+        "templates/related-adrs-blocks.md"
+      ],
+      "name": "emergent-to-spec"
+    },
+    {
+      "files": [
+        "CONVERSATION-DECISIONS-PROMPT.md",
+        "IMPLEMENTATION-READY-PROMPT.md",
+        "SHARED-REVIEW-PROMPT-FRAGMENTS.md",
+        "SKILL.md",
+        "scripts/prompt_assembly.py",
+        "scripts/report_validation.py"
+      ],
+      "name": "emergent-spec-review"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml"
+      ],
+      "name": "emergent-to-tickets"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml"
+      ],
+      "name": "emergent-implement-tickets"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml"
+      ],
+      "name": "emergent-implement"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "scripts/detect_runtime.py",
+        "scripts/locate_claude_code.py",
+        "scripts/locate_codex.py",
+        "scripts/locate_cursor.py",
+        "scripts/main.py"
+      ],
+      "name": "transcript-path"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "scripts/detect_runtime.py",
+        "scripts/extract_claude_code.py",
+        "scripts/extract_codex.py",
+        "scripts/extract_cursor.py",
+        "scripts/extract_shared.py",
+        "scripts/extract_transcript.py"
+      ],
+      "name": "extract-transcript"
+    }
+  ],
+  "source_commit": "196e5faf3d9635651897ab057d86deb0dc2fde74",
+  "source_dirty": true
+}
