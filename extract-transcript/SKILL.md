@@ -36,8 +36,7 @@ With no category arguments, the default selection contains:
 - `user_prompt`
 - `user_visible_agent_output`
 - the call of the runtime's known interactive question tool — the
-  per-runtime tool identities are defined once in the "interactive question
-  tool" entry of this skill's `CONTEXT.md`
+  per-runtime tool identities: Claude Code `AskUserQuestion`, Codex `request_user_input`, Cursor `AskQuestion`
 - that call's paired result, whenever the source stored one
 
 A question whose result the source never stored, or whose result cannot be
