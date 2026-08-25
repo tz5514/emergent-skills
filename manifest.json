@@ -10,6 +10,7 @@
     },
     {
       "files": [
+        "ADR-DELIVERY.md",
         "CONTEXT-FORMAT.md",
         "OUTPUT-FORMAT.md",
         "SKILL.md"
@@ -129,6 +130,6 @@
       "name": "extract-transcript"
     }
   ],
-  "source_commit": "44fa32cb54aacb0700aac4789154008b5f0948bc",
+  "source_commit": "247c13829610632d4789337658aa6f73698a434f",
   "source_dirty": false
 }

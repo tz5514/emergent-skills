@@ -63,7 +63,7 @@ Before dispatching any ticket, ask the user once whether this run uses a single 
 - **Worktree chosen** — create a branch with the settled name, forked from the branch that was current when Prepare started, and use it as this run's integration branch; create and check out exactly one shared git worktree on that integration branch; perform every ticket dedicated-branch operation — create, checkout, commit, and integrate — inside that worktree, and never switch the primary working tree's branch for ticket work; a dirty primary working tree is allowed on this path.
 - **Worktree declined** — ask whether the integration branch is the branch that was current when Prepare started, or a new branch forked from it with a suggested name; the primary working tree must be clean before any ticket is dispatched, or Prepare stops with a reportable error and dispatches nothing; perform ticket dedicated-branch operations in the primary working tree.
 
-When asking the user is impossible, do not invent a worktree or a new integration branch: settle without asking as **Worktree declined** with the integration branch equal to the branch that was current when Prepare started, still requiring that primary working tree to be clean before dispatch, and record this cannot-ask fallback in the final report.
+When asking the user is impossible, do not invent a worktree, a new integration branch, a push, or a PR: settle without asking as **Worktree declined** with the integration branch equal to the branch that was current when Prepare started, still requiring that primary working tree to be clean before dispatch, and record this cannot-ask fallback in the final report.
 
 Every path still gives each ticket its own dedicated branch that merges into the settled integration branch.
 
@@ -73,7 +73,7 @@ Suggest branch names from the tickets/spec directory's basename plus a prefix th
 
 Choose the worktree's disk path and every branch name so none collides with anything that already exists and every name stays human-readable; no fixed naming format is required beyond that.
 
-**Pre-existing same-task file changes.** Ask this last, after the worktree question above is settled: this is the Prepare question group's final question.
+**Pre-existing same-task file changes.** Ask after the worktree question above is settled, before the automatic push/PR question.
 
 The settled integration branch already exists when this gate runs, and so does the shared worktree on the path that chose one: settling the question above is what creates them.
 
@@ -139,15 +139,25 @@ Immediately after that commit succeeds and before later Prepare validation, reco
 
 Before ticket reading, verify every candidate against its confirmed custody: each **Transplant**-assigned change is committed on the settled integration branch with no uncommitted copy in the primary working tree; each **Stash**-assigned change is in the verified stash; each **Leave**-assigned change is unchanged in the primary working tree. Dispatch nothing until every candidate passes.
 
+**Automatic push and PR.** After every Prepare question above — including the pre-existing same-task file changes gate — ask whether this run should, on full success, push the integration branch and open a PR.
+
+Full success means every ticket is complete, the integration branch is green, and related draft ADR finalization has ended.
+
+If they decline, finish the run as this skill already does: do not push or open a PR because of this question.
+
+If they accept and the integration branch was forked from the branch that was current when Prepare started, that branch is the PR base. Otherwise ask them to specify a PR base; if they specify none, do not open a PR.
+
+When the repository has a pull-request description convention, write the PR description to that convention. Leave unpublished details to the run.
+
 Once every question above is answered, or settled by the cannot-ask fallback, ask the user nothing else for the rest of this invocation; anything that still needs a human decision goes into the final report instead. These Prepare questions run before the run is in progress, so asking them here is compatible with staying unattended afterward.
 
-Re-invoking this skill within the same agent session, on the same tickets directory, reuses the settled integration branch and worktree choice without asking again; if the chosen worktree's directory is missing, recreate it checked out on the same integration branch without asking.
+Re-invoking this skill within the same agent session, on the same tickets directory, reuses the settled integration branch, worktree choice, and automatic push/PR choice (including any specified PR base) without asking again; if the chosen worktree's directory is missing, recreate it checked out on the same integration branch without asking.
 
 A different tickets directory, or a new agent session, runs the questions above again — this skill keeps no external record of a previous run's answers.
 
 The pre-existing same-task file changes gate is outside that reuse: every invocation runs it again in its own Prepare, from a fresh scan, and never carries over the ruling an earlier invocation took.
 
-The two answers differ in kind. The settled integration branch and worktree choice is a setting — asked once and then fixed for the run, which is what makes a second invocation right to reuse it. The candidate list is no such setting but a reading of what the primary working tree holds at that moment, and an interrupted run is exactly the case where that tree has moved on since, so an inherited ruling would rule on files that are no longer the ones in front of the user.
+The two answers differ in kind. The settled integration branch, worktree choice, and automatic push/PR choice are settings — asked once and then fixed for the run, which is what makes a second invocation right to reuse them. The candidate list is no such setting but a reading of what the primary working tree holds at that moment, and an interrupted run is exactly the case where that tree has moved on since, so an inherited ruling would rule on files that are no longer the ones in front of the user.
 
 Keep no record of which candidates the user selected: nothing of that ruling survives for a later re-run to read.
 
@@ -460,6 +470,8 @@ Return:
 Do not declare success unless every ticket is complete and the integration branch is green.
 
 Report partial completion whenever any finalization draft ends unresolved or otherwise fails to reach a completed terminal during this run and is not already complete by lifecycle state. Report full success only when every draft is either already complete by lifecycle state or reached a completed terminal (deleted or promoted) during this run — never when any draft remains unresolved.
+
+When Prepare accepted automatic push and PR and this run reached full success, push the integration branch and then open the PR before the closing report. Use the PR base settled in Prepare. If a base was required and none was specified, skip the PR. When the repository has a pull-request description convention, write the description to that convention.
 
 ### Shared worktree cleanup
 
