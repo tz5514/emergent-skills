@@ -25,6 +25,19 @@ _EVENT_CONTENT_CATEGORIES = {
     "user_message": "user_prompt",
     "agent_message": "user_visible_agent_output",
 }
+_ITEM_MESSAGE_CATEGORIES = {
+    "UserMessage": "user_prompt",
+    "AgentMessage": "user_visible_agent_output",
+}
+# Sub-agent collaboration tools whose response_item call/output activity this
+# adapter extracts; SubAgentActivity and CollabAgentToolCall items only echo
+# that activity, so each item is noise solely when the tool stream exists.
+_COLLAB_AGENT_TOOL_NAMES = frozenset({
+    "list_agents",
+    "send_message",
+    "spawn_agent",
+    "wait_agent",
+})
 _FILES_MENTIONED_PREFIX = "# Files mentioned by the user:"
 _USER_REQUEST_MARKER = "## My request for Codex:"
 _PAIRED_CALL_TYPES = frozenset({
@@ -48,6 +61,7 @@ _SELF_CONTAINED_EVENT_TYPES = frozenset({
 INTERACTIVE_QUESTION_TOOLS = frozenset({"request_user_input"})
 _PROGRESS_EVENT_TYPES = frozenset({
     "agent_message",
+    "item_completed",
     "task_complete",
     "turn_aborted",
     "user_message",
@@ -98,7 +112,7 @@ _EXTRACT_TRANSCRIPT_SKILL_RE = re.compile(
     re.DOTALL,
 )
 _PROJECT_INSTRUCTIONS_RE = re.compile(
-    r"\A# AGENTS\.md instructions for [^\n]+\n+"
+    r"\A# AGENTS\.md instructions(?: for [^\n]+)?\n+"
     r"<INSTRUCTIONS>.*</INSTRUCTIONS>\s*\Z",
     re.DOTALL,
 )
@@ -113,10 +127,250 @@ _RUNTIME_USER_INSTRUCTION_RES = (
         ),
     ),
 )
+_RUNTIME_USER_CONTEXT_NOISE_RES = (
+    re.compile(
+        r"\A\s*<recommended_plugins>.*</recommended_plugins>\s*\Z",
+        re.DOTALL,
+    ),
+    re.compile(
+        r"\A\s*<environment_context>.*</environment_context>\s*\Z",
+        re.DOTALL,
+    ),
+)
 _VIEW_IMAGE_DATA_URL_RE = re.compile(
     r"\Adata:(image/(?:gif|jpeg|png|webp));base64,(.+)\Z",
     re.DOTALL,
 )
+_HIDDEN_MEMORY_CITATION_SUFFIX_RE = re.compile(
+    r"(?:\n\n)?<oai-mem-citation>.*?</oai-mem-citation>\s*\Z",
+    re.DOTALL,
+)
+_SESSION_DATA_EVENT_TYPES = frozenset({
+    "thread_settings_applied",
+    "token_count",
+})
+# agent_reasoning events mirror the response_item reasoning summaries this
+# adapter extracts; context_compacted events only mark history compaction.
+_NOISE_EVENT_TYPES = frozenset({"agent_reasoning", "context_compacted"})
+# ContextCompaction items are the item_completed form of context_compacted:
+# both only mark history compaction and carry no content of their own.
+_NOISE_ITEM_TYPES = frozenset({"ContextCompaction"})
+# Codex records native extension activity as one self-contained Extension
+# item. web.search keeps the name the web_search_call response_item produced,
+# so the normalized tool name survives the source-shape change.
+_EXTENSION_TOOL_NAMES = {"web.search": "web_search"}
+# These end events only mirror a response_item call the adapter extracts, so
+# each one is noise solely when that paired call exists in the same source.
+_MIRROR_END_EVENT_TYPES = frozenset({"exec_command_end", "patch_apply_end"})
+_RECOGNIZED_EVENT_TYPES = (
+    frozenset(_EVENT_CONTENT_CATEGORIES)
+    | frozenset(_TURN_LIFECYCLE_EVENTS)
+    | _SELF_CONTAINED_EVENT_TYPES
+    | _SESSION_DATA_EVENT_TYPES
+    | _NOISE_EVENT_TYPES
+)
+_RECOGNIZED_RESPONSE_TYPES = (
+    frozenset({"reasoning"})
+    | _PAIRED_CALL_TYPES
+    | _PAIRED_RESULT_TYPES
+    | _SELF_CONTAINED_RESPONSE_TYPES
+)
+_MESSAGE_ROLES = frozenset({"assistant", "developer", "system", "user"})
+
+
+def _completed_item(record):
+    """Return one item_completed event's inner item when it is inspectable."""
+    payload = record.get("payload")
+    if not (
+        record.get("type") == "event_msg"
+        and isinstance(payload, dict)
+        and payload.get("type") == "item_completed"
+    ):
+        return None
+    item = payload.get("item")
+    return item if isinstance(item, dict) else None
+
+
+def _content_blocks_text(container):
+    """Join the readable text blocks of an item or message payload."""
+    content = container.get("content")
+    if not isinstance(content, list):
+        return ""
+    return "\n".join(
+        block["text"]
+        for block in content
+        if (
+            isinstance(block, dict)
+            and isinstance(block.get("text"), str)
+            and block["text"]
+        )
+    )
+
+
+def _mirror_context(records):
+    """Summarize which mirrored response_item streams this source records."""
+    context = {
+        "paired_call_ids": set(),
+        "paired_message_record_indexes": set(),
+        "has_exec_tool_calls": False,
+        "exec_tool_call_turn_ids": set(),
+        "has_collab_tool_calls": False,
+        "reasoning_ids": set(),
+    }
+    for record in records:
+        payload = record.get("payload")
+        if not (
+            record.get("type") == "response_item"
+            and isinstance(payload, dict)
+        ):
+            continue
+        payload_type = payload.get("type")
+        if payload_type in _PAIRED_CALL_TYPES and payload.get("call_id"):
+            context["paired_call_ids"].add(payload["call_id"])
+        if payload_type == "custom_tool_call":
+            context["has_exec_tool_calls"] = True
+            metadata = payload.get("internal_chat_message_metadata_passthrough")
+            turn_id = metadata.get("turn_id") if isinstance(metadata, dict) else None
+            if turn_id:
+                context["exec_tool_call_turn_ids"].add(turn_id)
+        elif (
+            payload_type == "function_call"
+            and payload.get("name") in _COLLAB_AGENT_TOOL_NAMES
+        ):
+            context["has_collab_tool_calls"] = True
+        elif payload_type == "reasoning" and payload.get("id"):
+            context["reasoning_ids"].add(payload["id"])
+
+    available_message_mirrors = {}
+    for record in records:
+        mirror_key = _message_mirror_key(record)
+        if mirror_key is not None:
+            available_message_mirrors[mirror_key] = (
+                available_message_mirrors.get(mirror_key, 0) + 1
+            )
+    for record_index, record in enumerate(records):
+        payload = record.get("payload")
+        if not (
+            record.get("type") == "response_item"
+            and isinstance(payload, dict)
+            and payload.get("type") == "message"
+            and payload.get("role") in ("assistant", "user")
+        ):
+            continue
+        mirror_key = (payload["role"], _message_mirror_text(payload))
+        if not available_message_mirrors.get(mirror_key):
+            continue
+        context["paired_message_record_indexes"].add(record_index)
+        available_message_mirrors[mirror_key] -= 1
+    return context
+
+
+def _message_mirror_key(record):
+    """Return the role and text a message event positively mirrors."""
+    payload = record.get("payload")
+    if not (record.get("type") == "event_msg" and isinstance(payload, dict)):
+        return None
+    payload_type = payload.get("type")
+    if payload_type in _EVENT_CONTENT_CATEGORIES:
+        text = payload.get("message")
+        return (
+            ("user" if payload_type == "user_message" else "assistant", text)
+            if isinstance(text, str)
+            else None
+        )
+    item = _completed_item(record)
+    if item is None or item.get("type") not in _ITEM_MESSAGE_CATEGORIES:
+        return None
+    return (
+        "user" if item["type"] == "UserMessage" else "assistant",
+        _content_blocks_text(item),
+    )
+
+
+def _message_mirror_text(payload):
+    """Remove known hidden transport suffixes before mirror matching."""
+    return _HIDDEN_MEMORY_CITATION_SUFFIX_RE.sub("", _message_text(payload))
+
+
+def _is_standalone_command_execution(payload, mirrors):
+    """Decide whether a CommandExecution item is itself the tool activity.
+
+    The exec tool-call stream and CommandExecution items never share ids, so
+    a command item defaults to being that stream's display copy whenever the
+    stream exists; only turn evidence on both sides can positively separate
+    an independently run command from the stream's commands.
+    """
+    if not mirrors["has_exec_tool_calls"]:
+        return True
+    turn_id = payload.get("turn_id")
+    return bool(
+        turn_id
+        and mirrors["exec_tool_call_turn_ids"]
+        and turn_id not in mirrors["exec_tool_call_turn_ids"]
+    )
+
+
+def unrecognized_records(records):
+    """Return the source records no positive Codex classification covers."""
+    mirrors = _mirror_context(records)
+    return [
+        record
+        for record_index, record in enumerate(records)
+        if not _is_recognized(record, mirrors, record_index)
+    ]
+
+
+def _is_recognized_item(item, mirrors):
+    item_type = item.get("type")
+    if item_type in _ITEM_MESSAGE_CATEGORIES:
+        return isinstance(item.get("content"), list)
+    if item_type in ("CommandExecution", "Extension", "Reasoning"):
+        return True
+    if item_type in _NOISE_ITEM_TYPES:
+        return True
+    if item_type in ("CollabAgentToolCall", "SubAgentActivity"):
+        return mirrors["has_collab_tool_calls"]
+    return False
+
+
+def _is_recognized(record, mirrors, record_index):
+    record_type = record.get("type")
+    payload = record.get("payload")
+    if not isinstance(payload, dict):
+        return False
+    if record_type == "compacted":
+        # Compaction markers carry their replacement summary as "message".
+        return "message" in payload
+    if record_type in ("inter_agent_communication_metadata", "session_meta",
+                       "turn_context"):
+        return True
+    if record_type == "world_state":
+        return isinstance(payload.get("state"), dict)
+    payload_type = payload.get("type")
+    if record_type == "event_msg":
+        if payload_type == "item_completed":
+            item = payload.get("item")
+            return isinstance(item, dict) and _is_recognized_item(item, mirrors)
+        if payload_type in _MIRROR_END_EVENT_TYPES:
+            return payload.get("call_id") in mirrors["paired_call_ids"]
+        return payload_type in _RECOGNIZED_EVENT_TYPES
+    if record_type == "response_item":
+        if payload_type == "message":
+            role = payload.get("role")
+            if role not in _MESSAGE_ROLES:
+                return False
+            if role in ("developer", "system"):
+                return True
+            if record_index in mirrors["paired_message_record_indexes"]:
+                return True
+            return (
+                role == "user"
+                and _is_runtime_user_context_message(payload)
+            )
+        if payload_type == "agent_message":
+            return isinstance(payload.get("content"), list)
+        return payload_type in _RECOGNIZED_RESPONSE_TYPES
+    return False
 
 
 def _session_meta(records):
@@ -285,6 +539,81 @@ def _message_text(payload):
     )
 
 
+def _reasoning_summary_text(payload):
+    summary = payload.get("summary")
+    if not isinstance(summary, list):
+        return ""
+    return "\n".join(
+        block["text"]
+        for block in summary
+        if (
+            isinstance(block, dict)
+            and block.get("type") == "summary_text"
+            and isinstance(block.get("text"), str)
+            and block["text"]
+        )
+    )
+
+
+def _reasoning_item_summary_text(item):
+    summary = item.get("summary_text")
+    if not isinstance(summary, list):
+        return ""
+    parts = []
+    for block in summary:
+        if isinstance(block, str) and block:
+            parts.append(block)
+        elif (
+            isinstance(block, dict)
+            and isinstance(block.get("text"), str)
+            and block["text"]
+        ):
+            parts.append(block["text"])
+    return "\n".join(parts)
+
+
+def _reasoning_shapes(records):
+    """Yield each reasoning shape with its entity key and readable text."""
+    for index, record in enumerate(records):
+        payload = record.get("payload")
+        if (
+            record.get("type") == "response_item"
+            and isinstance(payload, dict)
+            and payload.get("type") == "reasoning"
+        ):
+            key = ("id", payload["id"]) if payload.get("id") else ("record", index)
+            yield key, _reasoning_summary_text(payload)
+            continue
+        item = _completed_item(record)
+        if item is not None and item.get("type") == "Reasoning":
+            key = ("id", item["id"]) if item.get("id") else ("record", index)
+            yield key, _reasoning_item_summary_text(item)
+
+
+def _encrypted_only_reasoning_count(records):
+    """Count reasoning entities whose every recorded shape is unreadable."""
+    entity_keys = set()
+    readable_keys = set()
+    for key, readable_text in _reasoning_shapes(records):
+        entity_keys.add(key)
+        if readable_text:
+            readable_keys.add(key)
+    return len(entity_keys - readable_keys)
+
+
+def omitted_content_reports(records):
+    """Report the per-category source content this adapter cannot deliver."""
+    encrypted_only = _encrypted_only_reasoning_count(records)
+    if not encrypted_only:
+        return {}
+    return {
+        "reasoning": [
+            "encrypted-only reasoning records were omitted "
+            "(count: {})".format(encrypted_only)
+        ],
+    }
+
+
 def current_session_cutoff(records):
     """Return the first source record for this attached skill invocation."""
     skill_index = None
@@ -303,14 +632,8 @@ def current_session_cutoff(records):
         return None
 
     for event_index in range(skill_index - 1, -1, -1):
-        record = records[event_index]
-        payload = record.get("payload")
-        if not (
-            record.get("type") == "event_msg"
-            and isinstance(payload, dict)
-            and payload.get("type") == "user_message"
-            and isinstance(payload.get("message"), str)
-        ):
+        submitted_text = _submitted_event_text(records[event_index])
+        if submitted_text is None:
             continue
         cutoff = event_index
         if event_index > 0:
@@ -320,10 +643,25 @@ def current_session_cutoff(records):
                 previous.get("type") == "response_item"
                 and isinstance(previous_payload, dict)
                 and previous_payload.get("role") == "user"
-                and _message_text(previous_payload) == payload["message"]
+                and _message_text(previous_payload) == submitted_text
             ):
                 cutoff -= 1
         return cutoff
+    return None
+
+
+def _submitted_event_text(record):
+    """Return the text an event proves the user submitted, if it is one."""
+    payload = record.get("payload")
+    if not (record.get("type") == "event_msg" and isinstance(payload, dict)):
+        return None
+    if payload.get("type") == "user_message":
+        message = payload.get("message")
+        return message if isinstance(message, str) else None
+    item = _completed_item(record)
+    if item is not None and item.get("type") == "UserMessage":
+        text = _content_blocks_text(item)
+        return text or None
     return None
 
 
@@ -356,15 +694,10 @@ def active_session_evidence(records):
     return False
 
 
-def _developer_instruction_text(value):
-    text = _instruction_text(value)
-    if text is None:
-        return None
-    match = _SKILLS_WRAPPER_RE.fullmatch(text)
-    if match is None:
-        return text
+def _skills_index_residue(text):
+    """Keep only the instruction lines a skills index carries beside entries."""
     substantive_lines = []
-    for line in match.group(1).splitlines():
+    for line in text.splitlines():
         stripped = line.strip()
         if (
             not stripped
@@ -379,6 +712,16 @@ def _developer_instruction_text(value):
     return substantive_text or None
 
 
+def _developer_instruction_text(value):
+    text = _instruction_text(value)
+    if text is None:
+        return None
+    match = _SKILLS_WRAPPER_RE.fullmatch(text)
+    if match is None:
+        return text
+    return _skills_index_residue(match.group(1))
+
+
 def _runtime_user_instruction_source(text):
     """Identify instruction-bearing user-role containers by source shape."""
     if _PROJECT_INSTRUCTIONS_RE.fullmatch(text):
@@ -391,6 +734,30 @@ def _runtime_user_instruction_source(text):
         ),
         None,
     )
+
+
+def _is_runtime_user_context_message(payload):
+    """Return whether every user-role block is known injected context."""
+    content = payload.get("content")
+    if not isinstance(content, list) or not content:
+        return False
+    for block in content:
+        if not (
+            isinstance(block, dict)
+            and block.get("type") == "input_text"
+            and isinstance(block.get("text"), str)
+        ):
+            return False
+        text = block["text"]
+        if (
+            _runtime_user_instruction_source(text) is None
+            and not any(
+                pattern.fullmatch(text)
+                for pattern in _RUNTIME_USER_CONTEXT_NOISE_RES
+            )
+        ):
+            return False
+    return True
 
 
 def _user_prompt_text(text, local_images):
@@ -609,6 +976,7 @@ def _paired_lifecycle_status(records, activity):
 
 def extract_records(records):
     """Return visible event-stream content records in source-relative order."""
+    mirrors = _mirror_context(records)
     activities = []
     activities_by_payload = {}
     calls_by_source_id = {}
@@ -619,6 +987,17 @@ def extract_records(records):
         if not isinstance(payload, dict):
             continue
         payload_type = payload.get("type")
+        item = _completed_item(record)
+        is_standalone_command = (
+            item is not None
+            and item.get("type") == "CommandExecution"
+            and _is_standalone_command_execution(payload, mirrors)
+        )
+        # No response_item stream mirrors an Extension item, so the item is
+        # always the whole record of that extension call.
+        is_item_activity = is_standalone_command or (
+            item is not None and item.get("type") == "Extension"
+        )
         is_tool_activity = (
             record.get("type") == "response_item"
             and payload_type in (_PAIRED_CALL_TYPES | _SELF_CONTAINED_RESPONSE_TYPES)
@@ -626,15 +1005,20 @@ def extract_records(records):
             record.get("type") == "event_msg"
             and payload_type in _SELF_CONTAINED_EVENT_TYPES
         )
-        if is_tool_activity:
+        if is_tool_activity or is_item_activity:
+            source_payload = item if is_item_activity else payload
             activity = {
                 "activity_id": "tool-{:04d}".format(len(activities) + 1),
                 "record_index": record_index,
-                "payload": payload,
+                "payload": source_payload,
             }
             activities.append(activity)
-            activities_by_payload[id(payload)] = activity
-            if payload_type in _PAIRED_CALL_TYPES and payload.get("call_id"):
+            activities_by_payload[id(source_payload)] = activity
+            if (
+                is_tool_activity
+                and payload_type in _PAIRED_CALL_TYPES
+                and payload.get("call_id")
+            ):
                 calls_by_source_id[payload["call_id"]] = activity
         elif (
             record.get("type") == "response_item"
@@ -823,19 +1207,120 @@ def extract_records(records):
             ))
         return normalized_activity
 
+    def extension_records(item):
+        activity = activities_by_payload[id(item)]
+        kind = item.get("kind")
+        tool_name = _EXTENSION_TOOL_NAMES.get(kind) or kind or "extension"
+        parameters = {
+            key: item[key]
+            for key in ("kind", "query", "action")
+            if item.get(key) is not None
+        }
+        results = item.get("results")
+        has_result = results is not None
+        lifecycle_status = _source_lifecycle_status(
+            item,
+            has_result=has_result,
+        )
+        call_record = normalized_tool_call_record(
+            activity["activity_id"],
+            tool_name,
+            parameters,
+            result_contract="not_required",
+            lifecycle_status=lifecycle_status,
+            lifecycle_report=tool_lifecycle_report(
+                activity["activity_id"],
+                tool_name,
+                lifecycle_status,
+            ),
+        )
+        if item.get("status") is not None:
+            call_record["source_status"] = item["status"]
+        normalized_activity = [call_record]
+        if has_result:
+            normalized_activity.append(normalized_tool_result_record(
+                activity["activity_id"],
+                results,
+            ))
+        return normalized_activity
+
+    def command_execution_records(item):
+        activity = activities_by_payload[id(item)]
+        parameters = {
+            key: item[key]
+            for key in ("command", "cwd")
+            if item.get(key) is not None
+        }
+        output_keys = ("aggregated_output", "stdout", "stderr", "exit_code")
+        has_output = any(item.get(key) is not None for key in output_keys)
+        exit_code = item.get("exit_code")
+        has_exit_evidence = (
+            isinstance(exit_code, int) and not isinstance(exit_code, bool)
+        )
+        # Output text alone is not execution-stage evidence; only a recorded
+        # exit code proves completion when the item carries no status.
+        lifecycle_status = _source_lifecycle_status(
+            item,
+            has_result=item.get("status") is None and has_exit_evidence,
+        )
+        call_record = normalized_tool_call_record(
+            activity["activity_id"],
+            "command_execution",
+            parameters,
+            result_contract="not_required",
+            lifecycle_status=lifecycle_status,
+            lifecycle_report=tool_lifecycle_report(
+                activity["activity_id"],
+                "command_execution",
+                lifecycle_status,
+            ),
+        )
+        if item.get("status") is not None:
+            call_record["source_status"] = item["status"]
+        normalized_activity = [call_record]
+        if has_output:
+            is_error = exit_code != 0 if has_exit_evidence else None
+            normalized_activity.append(normalized_tool_result_record(
+                activity["activity_id"],
+                {
+                    key: item[key]
+                    for key in output_keys
+                    if item.get(key) is not None
+                },
+                is_error=is_error,
+                lifecycle_report=tool_result_report(
+                    activity["activity_id"],
+                    "command_execution",
+                    None,
+                    is_error,
+                ),
+            ))
+        return normalized_activity
+
     normalized = []
     seen_instructions = set()
-    submitted_user_messages = {
-        payload.get("message")
-        for record in records
-        for payload in (record.get("payload"),)
+    submitted_user_messages = set()
+    item_reasoning_texts = {}
+    for record in records:
+        payload = record.get("payload")
         if (
             record.get("type") == "event_msg"
             and isinstance(payload, dict)
             and payload.get("type") == "user_message"
             and isinstance(payload.get("message"), str)
-        )
-    }
+        ):
+            submitted_user_messages.add(payload["message"])
+        item = _completed_item(record)
+        if item is None:
+            continue
+        if item.get("type") == "UserMessage":
+            text = _content_blocks_text(item)
+            if text:
+                submitted_user_messages.add(text)
+        elif item.get("type") == "Reasoning" and item.get("id"):
+            text = _reasoning_item_summary_text(item)
+            if text:
+                item_reasoning_texts[item["id"]] = text
 
     def append_instruction(source, text):
         identity = (source, text)
@@ -859,6 +1344,38 @@ def extract_records(records):
                     "system",
                     base_instructions,
                 )
+        elif record.get("type") == "world_state":
+            state = payload.get("state")
+            if not isinstance(state, dict):
+                continue
+            agents_md_text = _instruction_text(state.get("agents_md"))
+            if agents_md_text:
+                append_instruction("project", agents_md_text)
+            host_skills = state.get("host_skills")
+            host_skills_body = (
+                host_skills.get("body")
+                if isinstance(host_skills, dict)
+                else None
+            )
+            if isinstance(host_skills_body, str):
+                # Other world_state "instructions" fields hold content digests,
+                # not instruction text, so only these two subtrees qualify.
+                residue = _skills_index_residue(host_skills_body)
+                if residue:
+                    append_instruction("runtime", residue)
+        elif (
+            record.get("type") == "response_item"
+            and payload_type == "agent_message"
+        ):
+            text = _content_blocks_text(payload)
+            if text.strip():
+                instruction = normalized_agent_instructions_record("agent", text)
+                for key in ("author", "recipient"):
+                    if isinstance(payload.get(key), str) and payload[key]:
+                        instruction[key] = payload[key]
+                # Inter-agent messages legitimately repeat, so they bypass the
+                # re-injection dedup that append_instruction applies.
+                normalized.append(instruction)
         elif (
             record.get("type") == "response_item"
             and payload_type == "message"
@@ -894,17 +1411,10 @@ def extract_records(records):
                 if source is not None:
                     append_instruction(source, text)
         elif record.get("type") == "response_item" and payload_type == "reasoning":
-            summary = payload.get("summary")
-            summary_text = "\n".join(
-                block.get("text", "")
-                for block in summary
-                if (
-                    isinstance(block, dict)
-                    and block.get("type") == "summary_text"
-                    and isinstance(block.get("text"), str)
-                    and block.get("text")
-                )
-            ) if isinstance(summary, list) else ""
+            summary_text = (
+                _reasoning_summary_text(payload)
+                or item_reasoning_texts.get(payload.get("id"), "")
+            )
             if summary_text:
                 reasoning_number += 1
                 normalized.append(normalized_reasoning_record(
@@ -949,6 +1459,42 @@ def extract_records(records):
                     text=text,
                     image_sources=image_sources,
                 ))
+        elif (
+            record.get("type") == "event_msg"
+            and payload_type == "item_completed"
+        ):
+            item = payload.get("item")
+            if not isinstance(item, dict):
+                continue
+            item_type = item.get("type")
+            if item_type in _ITEM_MESSAGE_CATEGORIES:
+                text = _content_blocks_text(item)
+                if text.strip():
+                    normalized.append(normalized_content_record(
+                        _ITEM_MESSAGE_CATEGORIES[item_type],
+                        text=text,
+                    ))
+            elif item_type == "Reasoning":
+                # A Reasoning item paired by id only mirrors the response_item
+                # reasoning entity this adapter already extracts or counts.
+                if item.get("id") not in mirrors["reasoning_ids"]:
+                    summary_text = _reasoning_item_summary_text(item)
+                    if summary_text:
+                        reasoning_number += 1
+                        normalized.append(normalized_reasoning_record(
+                            "summary",
+                            text=summary_text,
+                            sequence_number=reasoning_number,
+                        ))
+            elif item_type == "Extension":
+                normalized.extend(extension_records(item))
+            elif (
+                item_type == "CommandExecution"
+                # Registered in the activity pass only when it stands alone;
+                # otherwise it is the exec tool-call stream's display copy.
+                and id(item) in activities_by_payload
+            ):
+                normalized.extend(command_execution_records(item))
         elif (
             record.get("type") == "response_item"
             and payload_type in _PAIRED_CALL_TYPES

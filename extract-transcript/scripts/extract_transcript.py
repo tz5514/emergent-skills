@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -34,11 +33,17 @@ _CONTENT_CATEGORIES = frozenset({
     "user_prompt",
     "user_visible_agent_output",
 })
-_TRANSCRIPT_PATH_SCRIPT = (
-    Path(__file__).resolve().parents[2] / "transcript-path" / "scripts" / "main.py"
-)
 EXTRACTION_MANIFEST_FILENAME = "extraction-manifest.json"
 EXTRACTION_MANIFEST_VERSION = 1
+_FORMAT_DRIFT_CLAUSE = (
+    "the runtime transcript format may have changed and extract-transcript "
+    "may need an update"
+)
+UNRECOGNIZED_RECORDS_NOTICE = (
+    "The source has unrecognized records (count: {count}); "
+    + _FORMAT_DRIFT_CLAUSE
+    + "."
+)
 
 
 class UnsupportedRuntimeError(ValueError):
@@ -49,10 +54,6 @@ class InvalidTranscriptPathError(ValueError):
     """The requested transcript path cannot be used as a source."""
 
 
-class TranscriptResolutionError(RuntimeError):
-    """The current session transcript could not be resolved."""
-
-
 class TranscriptReadError(ValueError):
     """A complete source record cannot be decoded as UTF-8 JSON."""
 
@@ -61,19 +62,8 @@ class CurrentSessionBoundaryError(RuntimeError):
     """The current extraction invocation cannot be excluded reliably."""
 
 
-def _resolve_current_session_transcript():
-    completed = subprocess.run(
-        [sys.executable, str(_TRANSCRIPT_PATH_SCRIPT)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if completed.returncode != 0:
-        return None
-    lines = completed.stdout.splitlines()
-    if len(lines) != 1 or not Path(lines[0]).is_absolute():
-        return None
-    return lines[0]
+class UnrecognizedRecordsError(RuntimeError):
+    """Unrecognized source records make an empty extraction untrustworthy."""
 
 
 def _validate_source_path(path):
@@ -149,6 +139,7 @@ def _write_extraction_manifest(
     *,
     selected_categories,
     include_launched_agents,
+    unrecognized_record_count,
 ):
     assets_directory = Path(output_directory) / "assets"
     assets = []
@@ -171,6 +162,7 @@ def _write_extraction_manifest(
         ).hexdigest(),
         "content_categories": sorted(selected_categories),
         "include_launched_agents": include_launched_agents,
+        "unrecognized_record_count": unrecognized_record_count,
         "assets": assets,
     }
     (output_directory / EXTRACTION_MANIFEST_FILENAME).write_text(
@@ -193,22 +185,13 @@ def _interactive_question_activity_ids(content_records, adapter):
 
 
 def extract_transcript(
-    source_path=None,
+    source_path,
     content_categories=None,
     *,
     include_launched_agents=False,
-    transcript_resolver=None,
+    current_session=False,
 ):
     """Normalize a primary transcript and optionally its proven launched agents."""
-    automatically_resolved = source_path is None
-    if source_path is None:
-        if transcript_resolver is None:
-            transcript_resolver = _resolve_current_session_transcript
-        source_path = transcript_resolver()
-        if not source_path:
-            raise TranscriptResolutionError(
-                "Current session transcript could not be resolved"
-            )
     source_path = _validate_source_path(source_path)
     source_records = _load_records(source_path)
     runtime = detect_runtime(source_path)
@@ -218,24 +201,24 @@ def extract_transcript(
             "Unsupported or unknown transcript runtime: {}".format(runtime)
         )
 
-    explicit_source_is_active = False
-    if not automatically_resolved:
-        active_session_evidence = getattr(
-            primary_adapter,
-            "active_session_evidence",
-            None,
-        )
-        explicit_source_is_active = bool(
-            active_session_evidence
-            and active_session_evidence(source_records)
-        )
-    if automatically_resolved:
+    source_is_active = False
+    if current_session:
         cutoff = primary_adapter.current_session_cutoff(source_records)
         if cutoff is None:
             raise CurrentSessionBoundaryError(
                 "Current session extraction boundary could not be resolved"
             )
         source_records = source_records[:cutoff]
+    else:
+        active_session_evidence = getattr(
+            primary_adapter,
+            "active_session_evidence",
+            None,
+        )
+        source_is_active = bool(
+            active_session_evidence
+            and active_session_evidence(source_records)
+        )
     default_selection = content_categories is None
     selected_categories = (
         _DEFAULT_CONTENT_CATEGORIES
@@ -254,7 +237,7 @@ def extract_transcript(
         def identified_condition(artifact_name, message):
             return "{}: {}".format(artifact_name, message)
 
-        if explicit_source_is_active:
+        if source_is_active:
             conditions["exceptional"].append(
                 identified_condition(
                     destination.name,
@@ -262,6 +245,8 @@ def extract_transcript(
                 )
             )
         image_assets = ImageAssets(output_directory, Path(source_path).parent)
+
+        unrecognized_counts = {}
 
         def normalize_agent(
             agent_source_path,
@@ -271,6 +256,9 @@ def extract_transcript(
             artifact_name,
             parent_artifact_path=None,
         ):
+            unrecognized_counts[artifact_name] = len(
+                agent_adapter.unrecognized_records(agent_source_records)
+            )
             header = agent_adapter.extract_session_basic_data(agent_source_records)
             if parent_artifact_path is not None:
                 header["parent_artifact_path"] = parent_artifact_path
@@ -307,6 +295,21 @@ def extract_transcript(
                                 unavailable_categories[category],
                             ),
                         )
+                    )
+            omitted_content_reports = getattr(
+                agent_adapter,
+                "omitted_content_reports",
+                None,
+            )
+            if omitted_content_reports is not None:
+                for category, messages in sorted(
+                    omitted_content_reports(agent_source_records).items()
+                ):
+                    if category not in selected_categories:
+                        continue
+                    conditions["omitted"].extend(
+                        identified_condition(artifact_name, message)
+                        for message in messages
                     )
             content_records = agent_adapter.extract_records(agent_source_records)
             # Adapters give every unpairable result its own fresh activity id, so
@@ -356,6 +359,17 @@ def extract_transcript(
             source_records,
             destination.name,
         )
+        primary_unrecognized = unrecognized_counts[destination.name]
+        # normalized_records[0] is always the session basic data header.
+        primary_has_content = len(normalized_records) > 1
+        if primary_unrecognized and not primary_has_content:
+            raise UnrecognizedRecordsError(
+                "selected content categories matched no content while the "
+                "source has unrecognized records (count: {}); {}".format(
+                    primary_unrecognized,
+                    _FORMAT_DRIFT_CLAUSE,
+                )
+            )
         _write_jsonl(destination, normalized_records)
 
         if include_launched_agents:
@@ -461,13 +475,20 @@ def extract_transcript(
                 destination,
                 normalized_records,
             )
+        total_unrecognized = sum(unrecognized_counts.values())
         _write_extraction_manifest(
             output_directory,
             destination,
             selected_categories=selected_categories,
             include_launched_agents=include_launched_agents,
+            unrecognized_record_count=total_unrecognized,
         )
         _report_extraction_conditions(conditions)
+        if total_unrecognized:
+            print(
+                UNRECOGNIZED_RECORDS_NOTICE.format(count=total_unrecognized),
+                file=sys.stderr,
+            )
     except Exception:
         shutil.rmtree(output_directory)
         raise
@@ -483,8 +504,15 @@ def _parse_args(argv):
     )
     parser.add_argument(
         "transcript_path",
-        nargs="?",
-        help="source transcript; omit to resolve the current session",
+        help="path to the source transcript",
+    )
+    parser.add_argument(
+        "--current-session",
+        action="store_true",
+        help=(
+            "treat the source as the session making this call, so the "
+            "artifact stops before this extraction request"
+        ),
     )
     parser.add_argument(
         "--content-category",
@@ -500,7 +528,7 @@ def _parse_args(argv):
     return parser.parse_args(argv)
 
 
-def main(argv=None, *, transcript_resolver=None):
+def main(argv=None):
     """Run the command-line interface and return its process status."""
     arguments = _parse_args(sys.argv[1:] if argv is None else argv)
     try:
@@ -508,7 +536,7 @@ def main(argv=None, *, transcript_resolver=None):
             arguments.transcript_path,
             content_categories=arguments.content_categories,
             include_launched_agents=arguments.include_launched_agents,
-            transcript_resolver=transcript_resolver,
+            current_session=arguments.current_session,
         ).resolve()
     except (OSError, RuntimeError, ValueError) as error:
         print("error: {}".format(error), file=sys.stderr)

@@ -33,6 +33,61 @@ _SYSTEM_PREFIXES = (
 INTERACTIVE_QUESTION_TOOLS = frozenset({"AskUserQuestion"})
 # Claude Code sources prove visible assistant text, while images are only proven
 # in prompts or tool results; assistant image-looking blocks stay out.
+_LIFECYCLE_SYSTEM_SUBTYPES = frozenset({"api_error", "turn_duration"})
+# Session-list, editor-state, compaction, and file-backup bookkeeping records:
+# their dialogue-visible effects, when any, land in user or assistant records.
+_NOISE_RECORD_TYPES = frozenset({
+    "ai-title",
+    "atis-latch",
+    "file-history-delta",
+    "file-history-snapshot",
+    "last-prompt",
+    "mode",
+    "pr-link",
+    "queue-operation",
+    "summary",
+})
+_NOISE_SYSTEM_SUBTYPES = frozenset({
+    "compact_boundary",
+    "local_command",
+    "stop_hook_summary",
+})
+_RECOGNIZED_SYSTEM_SUBTYPES = _LIFECYCLE_SYSTEM_SUBTYPES | _NOISE_SYSTEM_SUBTYPES
+# Attachment records stage runtime context; the conversational copy of that
+# context is recorded separately, except the queued_command prompt.
+_NOISE_ATTACHMENT_TYPES = frozenset({
+    "agent_listing_delta",
+    "auto_mode",
+    "command_permissions",
+    "deferred_tools_delta",
+    "edited_text_file",
+    "mcp_instructions_delta",
+    "output_style",
+    "read_truncation_notice",
+    "skill_listing",
+    "total_tokens_reminder",
+})
+_RECOGNIZED_ATTACHMENT_TYPES = _NOISE_ATTACHMENT_TYPES | {"queued_command"}
+
+
+def unrecognized_records(records):
+    """Return the source records no positive Claude Code classification covers."""
+    return [record for record in records if not _is_recognized(record)]
+
+
+def _is_recognized(record):
+    record_type = record.get("type")
+    if record_type in ("user", "assistant"):
+        return "message" in record
+    if record_type == "system":
+        return record.get("subtype") in _RECOGNIZED_SYSTEM_SUBTYPES
+    if record_type == "attachment":
+        attachment = record.get("attachment")
+        return (
+            isinstance(attachment, dict)
+            and attachment.get("type") in _RECOGNIZED_ATTACHMENT_TYPES
+        )
+    return record_type in _NOISE_RECORD_TYPES
 
 
 def discover_launched_agent_transcripts(source_path, records):

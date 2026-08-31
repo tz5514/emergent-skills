@@ -56,6 +56,18 @@ UNAVAILABLE_CONTENT_CATEGORIES = {
 }
 
 
+def unrecognized_records(records):
+    """Return the source records no positive Cursor classification covers."""
+    return [
+        record
+        for record in records
+        if not (
+            record.get("role") in ("user", "assistant")
+            and "message" in record
+        )
+    ]
+
+
 def unavailable_content_categories(records):
     """Return categories absent from this specific Cursor transcript."""
     unavailable = dict(UNAVAILABLE_CONTENT_CATEGORIES)
