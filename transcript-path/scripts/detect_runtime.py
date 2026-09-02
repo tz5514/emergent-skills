@@ -3,10 +3,6 @@
 
 Usage: python detect_runtime.py
 Prints the host runtime identifier to stdout, or nothing if none is detected.
-
-Unlike research-transcript's detect_runtime (which reads a *file's contents* to
-judge which tool produced it), this detector reads *environment variables* to
-judge the live host runtime — before any transcript file is in hand.
 """
 from __future__ import annotations
 
