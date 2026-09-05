@@ -326,6 +326,14 @@ def _is_recognized_item(item, mirrors):
         return isinstance(item.get("content"), list)
     if item_type in ("CommandExecution", "Extension", "Reasoning"):
         return True
+    if item_type == "FileChange":
+        return isinstance(item.get("changes"), dict)
+    if item_type == "McpToolCall":
+        return (
+            isinstance(item.get("server"), str)
+            and isinstance(item.get("tool"), str)
+            and "arguments" in item
+        )
     if item_type in _NOISE_ITEM_TYPES:
         return True
     if item_type in ("CollabAgentToolCall", "SubAgentActivity"):
@@ -338,6 +346,8 @@ def _is_recognized(record, mirrors, record_index):
     payload = record.get("payload")
     if not isinstance(payload, dict):
         return False
+    if record_type == "token_usage_record":
+        return isinstance(payload.get("thread_token_usage"), dict)
     if record_type == "compacted":
         # Compaction markers carry their replacement summary as "message".
         return "message" in payload
@@ -788,7 +798,8 @@ def _user_prompt_text(text, local_images):
 def extract_session_basic_data(records):
     """Return Codex session data available at the extraction boundary."""
     header_values = {}
-    token_usage = None
+    event_token_usage = None
+    thread_token_usage = None
     for record in records:
         payload = record.get("payload")
         if not isinstance(payload, dict):
@@ -806,18 +817,32 @@ def extract_session_basic_data(records):
                 header_values.setdefault("git_branch", git_data["branch"])
         if "model" not in header_values and payload.get("model") not in (None, ""):
             header_values["model"] = payload["model"]
+        if record.get("type") == "token_usage_record":
+            cumulative = payload.get("thread_token_usage")
+            total = (
+                cumulative.get("total_tokens")
+                if isinstance(cumulative, dict)
+                else None
+            )
+            if isinstance(total, (int, float)) and not isinstance(total, bool):
+                thread_token_usage = total
+            continue
         if record.get("type") != "event_msg" or payload.get("type") != "token_count":
             continue
         info = payload.get("info")
         cumulative = info.get("total_token_usage") if isinstance(info, dict) else None
         total = cumulative.get("total_tokens") if isinstance(cumulative, dict) else None
         if isinstance(total, (int, float)) and not isinstance(total, bool):
-            token_usage = total
+            event_token_usage = total
 
     return session_basic_data(
         "codex",
         session_start=earliest_timestamp(records),
-        token_usage=token_usage,
+        token_usage=(
+            thread_token_usage
+            if thread_token_usage is not None
+            else event_token_usage
+        ),
         **header_values,
     )
 
@@ -888,24 +913,28 @@ def _split_view_image_result_content(content):
 
 
 def _split_mcp_result_content(result):
-    """Separate images only from the MCP Ok.content contract."""
+    """Separate images from legacy wrapped or direct MCP results."""
     if not isinstance(result, dict):
         return result, []
     ok_result = result.get("Ok")
-    if not (
-        isinstance(ok_result, dict)
-        and isinstance(ok_result.get("content"), list)
-    ):
+    if isinstance(ok_result, dict):
+        result_container = ok_result
+    else:
+        result_container = result
+    if not isinstance(result_container.get("content"), list):
         return result, []
     retained_content, image_sources = split_tool_result_content(
-        ok_result["content"],
+        result_container["content"],
     )
     if not image_sources:
         return result, []
-    retained_ok = dict(ok_result)
-    retained_ok["content"] = retained_content
     retained_result = dict(result)
-    retained_result["Ok"] = retained_ok
+    if isinstance(ok_result, dict):
+        retained_ok = dict(ok_result)
+        retained_ok["content"] = retained_content
+        retained_result["Ok"] = retained_ok
+    else:
+        retained_result["content"] = retained_content
     return retained_result, image_sources
 
 
@@ -930,6 +959,8 @@ def _mcp_result_error_evidence(result):
     """Return error evidence from the MCP result wrapper contract."""
     decoded = _decode_json_container(result)
     if isinstance(decoded, dict):
+        if isinstance(decoded.get("isError"), bool):
+            return decoded["isError"]
         ok_result = decoded.get("Ok")
         if (
             isinstance(ok_result, dict)
@@ -993,10 +1024,11 @@ def extract_records(records):
             and item.get("type") == "CommandExecution"
             and _is_standalone_command_execution(payload, mirrors)
         )
-        # No response_item stream mirrors an Extension item, so the item is
-        # always the whole record of that extension call.
+        # Extension items are self-contained. File and MCP items remain
+        # first-class activities even when an outer exec call encloses them.
         is_item_activity = is_standalone_command or (
-            item is not None and item.get("type") == "Extension"
+            item is not None
+            and item.get("type") in ("Extension", "FileChange", "McpToolCall")
         )
         is_tool_activity = (
             record.get("type") == "response_item"
@@ -1297,6 +1329,112 @@ def extract_records(records):
             ))
         return normalized_activity
 
+    def file_change_records(item):
+        activity = activities_by_payload[id(item)]
+        lifecycle_status = _source_lifecycle_status(item, terminal=True)
+        call_record = normalized_tool_call_record(
+            activity["activity_id"],
+            "file_change",
+            {"changes": item.get("changes", {})},
+            result_contract="not_required",
+            lifecycle_status=lifecycle_status,
+            lifecycle_report=tool_lifecycle_report(
+                activity["activity_id"],
+                "file_change",
+                lifecycle_status,
+            ),
+        )
+        for key in ("status", "auto_approved", "duration"):
+            if item.get(key) is not None:
+                output_key = "source_status" if key == "status" else key
+                call_record[output_key] = item[key]
+        normalized_activity = [call_record]
+        output_keys = ("stdout", "stderr")
+        if any(item.get(key) is not None for key in output_keys):
+            is_error = item.get("status") == "failed"
+            normalized_activity.append(normalized_tool_result_record(
+                activity["activity_id"],
+                {
+                    key: item[key]
+                    for key in output_keys
+                    if item.get(key) is not None
+                },
+                is_error=is_error,
+                lifecycle_report=tool_result_report(
+                    activity["activity_id"],
+                    "file_change",
+                    None,
+                    is_error,
+                ),
+            ))
+        return normalized_activity
+
+    def mcp_tool_call_item_records(item):
+        activity = activities_by_payload[id(item)]
+        lifecycle_status = _source_lifecycle_status(
+            item,
+            terminal=True,
+        )
+        tool_name = "{}.{}".format(item["server"], item["tool"])
+        call_record = normalized_tool_call_record(
+            activity["activity_id"],
+            tool_name,
+            item.get("arguments"),
+            result_contract="not_required",
+            lifecycle_status=lifecycle_status,
+            lifecycle_report=tool_lifecycle_report(
+                activity["activity_id"],
+                tool_name,
+                lifecycle_status,
+            ),
+        )
+        if item.get("status") is not None:
+            call_record["source_status"] = item["status"]
+        for key in (
+            "duration",
+            "connector_id",
+            "mcp_app_resource_uri",
+            "link_id",
+            "app_name",
+            "action_name",
+            "plugin_id",
+            "read_only_hint",
+        ):
+            if item.get(key) is not None:
+                call_record[key] = item[key]
+        normalized_activity = [call_record]
+        if "result" in item:
+            decoded_result = _decode_json_container(item.get("result"))
+            result, image_sources = _split_mcp_result_content(decoded_result)
+            is_error = _mcp_result_error_evidence(decoded_result)
+            if item.get("status") in ("error", "failed"):
+                is_error = True
+            normalized_activity.append(normalized_tool_result_record(
+                activity["activity_id"],
+                result,
+                image_sources=image_sources,
+                is_error=is_error,
+                lifecycle_report=tool_result_report(
+                    activity["activity_id"],
+                    tool_name,
+                    None,
+                    is_error,
+                ),
+            ))
+        elif item.get("error") is not None:
+            normalized_activity.append(normalized_tool_result_record(
+                activity["activity_id"],
+                {"error": item["error"]},
+                is_error=True,
+                lifecycle_report=tool_result_report(
+                    activity["activity_id"],
+                    tool_name,
+                    None,
+                    True,
+                ),
+            ))
+        return normalized_activity
+
     normalized = []
     seen_instructions = set()
     submitted_user_messages = set()
@@ -1488,6 +1626,10 @@ def extract_records(records):
                         ))
             elif item_type == "Extension":
                 normalized.extend(extension_records(item))
+            elif item_type == "FileChange":
+                normalized.extend(file_change_records(item))
+            elif item_type == "McpToolCall":
+                normalized.extend(mcp_tool_call_item_records(item))
             elif (
                 item_type == "CommandExecution"
                 # Registered in the activity pass only when it stands alone;
